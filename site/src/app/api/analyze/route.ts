@@ -60,18 +60,30 @@ async function analyzeCustomerContent(content: string, title: string) {
 
 TONE & STYLE REQUIREMENTS:
 - Write as a knowledgeable solar expert who is friendly and approachable
-- Target reading level: HIGH SCHOOL (not college, not middle school)
+- Target reading level: HIGH SCHOOL 
 - Use clear, everyday language - no industry jargon without explanation
 - Be upbeat and encouraging but professional
 - Use formatting aggressively: bullets, numbered lists, bold text, short paragraphs
 - Add punctuation where needed to improve clarity
 - Break up long sentences and dense paragraphs
 
+IMPORTANT SOLAR FACTS TO INCLUDE:
+- Solar panels and batteries do NOT need regular check-ups or maintenance "just because"
+- Only schedule service when there is an actual issue or problem
+- Systems are designed to be low-maintenance and self-monitoring
+- Monitoring apps alert homeowners to any issues automatically
+
 YOUR TASK:
 1. Analyze the content for what's missing
 2. Rewrite for high school readability with professional solar expert tone
-3. WRITE THE MISSING SECTIONS - don't just list what's missing, actually write the content that should be added
-4. Show a complete "After" version that includes: original content + tone improvements + suggested additions
+3. WRITE THE MISSING SECTIONS - don't just list what's missing, actually write the content
+4. INCLUDE ALL MISSING CONTENT in the final "After" version
+5. The "After" version should be COMPLETE and ready to publish
+
+The "After" version MUST include:
+- Original content (tone-improved)
+- All suggested additions integrated seamlessly
+- Any missing critical information written out fully
 
 Return JSON:
 {
@@ -84,19 +96,19 @@ Return JSON:
   "toneAnalysis": {
     "current": "description of current tone",
     "improved": "description of improved tone",
-    "suggestedEdit": "FULL REWRITTEN ARTICLE with better tone and formatting"
+    "suggestedEdit": "FULL REWRITE with better tone"
   },
   "suggestedAdditions": [
     {
-      "section": "What to call this addition (e.g., 'Cost Savings Example')",
-      "content": "The actual written content to add - write it as a solar expert would",
-      "placement": "where it goes (e.g., 'After paragraph 2', 'End of article')"
+      "section": "Name of section to add",
+      "content": "The actual written content - write it fully",
+      "placement": "where it goes"
     }
   ],
   "missingContent": ["brief list of what was missing"],
   "beforeAfter": {
-    "before": "the original content they submitted",
-    "after": "COMPLETE FINAL VERSION with all improvements and additions integrated"
+    "before": "original content",
+    "after": "COMPLETE FINAL VERSION with ALL improvements AND all missing content written out and integrated"
   },
   "suggestedTags": ["relevant tags"],
   "warnings": ["important caveats"]
