@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Search, BookOpen, Zap, LogOut, LogIn } from "lucide-react";
+import { Search, BookOpen, Zap, LogOut, LogIn, Lock } from "lucide-react";
 
 export function Navigation() {
   const { data: session, status } = useSession();
@@ -17,36 +17,33 @@ export function Navigation() {
               <Zap className="w-5 h-5 text-[#231F20]" />
             </div>
             <span className="font-bold text-xl group-hover:text-[#F7FF96] transition-colors">
-              Agora Studio
+              Venture Home Help
             </span>
           </Link>
 
-          {/* Navigation Links */}
-          {session && (
-            <div className="hidden md:flex items-center gap-6">
-              <Link
-                href="/concepts"
-                className="flex items-center gap-2 hover:text-[#F7FF96] transition-colors"
-              >
-                <BookOpen className="w-4 h-4" />
-                Concepts
-              </Link>
-              <Link
-                href="/engrams"
-                className="flex items-center gap-2 hover:text-[#F7FF96] transition-colors"
-              >
-                <Zap className="w-4 h-4" />
-                Engrams
-              </Link>
-              <Link
-                href="/search"
-                className="flex items-center gap-2 hover:text-[#F7FF96] transition-colors"
-              >
-                <Search className="w-4 h-4" />
-                Search
-              </Link>
-            </div>
-          )}
+          {/* Navigation Links - Always visible */}
+          <div className="hidden md:flex items-center gap-6">
+            <Link
+              href="/"
+              className="hover:text-[#F7FF96] transition-colors"
+            >
+              Home
+            </Link>
+            <Link
+              href="/browse"
+              className="flex items-center gap-2 hover:text-[#F7FF96] transition-colors"
+            >
+              <BookOpen className="w-4 h-4" />
+              Articles
+            </Link>
+            <Link
+              href="/search"
+              className="flex items-center gap-2 hover:text-[#F7FF96] transition-colors"
+            >
+              <Search className="w-4 h-4" />
+              Search
+            </Link>
+          </div>
 
           {/* Auth */}
           <div className="flex items-center gap-4">
@@ -54,9 +51,12 @@ export function Navigation() {
               <div className="w-8 h-8 bg-[#B1C3BD] rounded-full animate-pulse" />
             ) : session ? (
               <>
-                <span className="text-sm text-[#B1C3BD] hidden sm:inline">
-                  {session.user?.email}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-[#7AEFB1]" />
+                  <span className="text-sm text-[#B1C3BD] hidden sm:inline">
+                    {session.user?.email}
+                  </span>
+                </div>
                 <button
                   onClick={() => signOut()}
                   className="flex items-center gap-2 bg-[#F7FF96] text-[#231F20] px-4 py-2 rounded-lg font-medium hover:bg-[#7AEFB1] transition-colors"
@@ -70,8 +70,8 @@ export function Navigation() {
                 onClick={() => signIn("google")}
                 className="flex items-center gap-2 bg-[#F7FF96] text-[#231F20] px-4 py-2 rounded-lg font-medium hover:bg-[#7AEFB1] transition-colors"
               >
-                <LogIn className="w-4 h-4" />
-                Sign In with Google
+                <Lock className="w-4 h-4" />
+                Team Sign In
               </button>
             )}
           </div>

@@ -22,9 +22,15 @@ export interface Engram {
   title: string;
   description: string;
   hasSkill: boolean;
+  audience?: string[];
 }
 
-export function getAllConcepts(): Concept[] {
+// Check if content is public (customer-facing)
+export function isPublicContent(audience: string[]): boolean {
+  return audience.includes("customer") || audience.includes("external");
+}
+
+export function getAllConcepts(includeInternal = false): Concept[] {
   if (!fs.existsSync(CONCEPTS_DIR)) {
     return [];
   }
@@ -36,14 +42,18 @@ export function getAllConcepts(): Concept[] {
     if (!file.endsWith(".md")) continue;
     
     const slug = file.replace(".md", "");
-    const concept = getConceptBySlug(slug);
+    const concept = getConceptBySlug(slug, includeInternal);
     if (concept) concepts.push(concept);
   }
 
   return concepts.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-export function getConceptBySlug(slug: string): Concept | null {
+export function getPublicConcepts(): Concept[] {
+  return getAllConcepts(false).filter(c => isPublicContent(c.audience));
+}
+
+export function getConceptBySlug(slug: string, includeInternal = false): Concept | null {
   const filePath = path.join(CONCEPTS_DIR, `${slug}.md`);
   
   if (!fs.existsSync(filePath)) return null;
@@ -51,19 +61,26 @@ export function getConceptBySlug(slug: string): Concept | null {
   const fileContent = fs.readFileSync(filePath, "utf-8");
   const { data, content } = matter(fileContent);
 
+  const audience = data.audience || [];
+  
+  // If not logged in and not public content, return null
+  if (!includeInternal && !isPublicContent(audience)) {
+    return null;
+  }
+
   return {
     slug,
     concept_id: data.concept_id || slug,
     title: data.title || slug,
     content_type: data.content_type || "concept",
-    audience: data.audience || [],
+    audience,
     tags: data.tags || [],
     content,
     excerpt: content.slice(0, 200).replace(/#.*\n/g, "").trim(),
   };
 }
 
-export function getAllEngrams(): Engram[] {
+export function getAllEngrams(includeInternal = false): Engram[] {
   if (!fs.existsSync(ENGRAMS_DIR)) {
     return [];
   }
@@ -81,6 +98,12 @@ export function getAllEngrams(): Engram[] {
     if (fs.existsSync(indexPath)) {
       const fileContent = fs.readFileSync(indexPath, "utf-8");
       const { data } = matter(fileContent);
+      const audience = data.audience || [];
+
+      // Skip internal-only engrams for public
+      if (!includeInternal && !isPublicContent(audience) && !audience.includes("agent")) {
+        // Still include agent-facing engrams as they might have customer value
+      }
 
       engrams.push({
         slug: dir,
@@ -88,6 +111,7 @@ export function getAllEngrams(): Engram[] {
         title: data.title || dir,
         description: data.description || "",
         hasSkill: fs.existsSync(skillPath),
+        audience,
       });
     }
   }
@@ -95,8 +119,8 @@ export function getAllEngrams(): Engram[] {
   return engrams.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-export function searchConcepts(query: string): Concept[] {
-  const concepts = getAllConcepts();
+export function searchConcepts(query: string, includeInternal = false): Concept[] {
+  const concepts = getAllConcepts(includeInternal);
   const lowerQuery = query.toLowerCase();
   
   return concepts.filter(
@@ -104,5 +128,27 @@ export function searchConcepts(query: string): Concept[] {
       c.title.toLowerCase().includes(lowerQuery) ||
       c.tags.some((t) => t.toLowerCase().includes(lowerQuery)) ||
       c.content.toLowerCase().includes(lowerQuery)
+  );
+}
+
+export function getConceptsByCategory(category: string): Concept[] {
+  const concepts = getPublicConcepts();
+  
+  const categoryMap: Record<string, string[]> = {
+    "billing": ["net-metering", "utility", "bill", "metering"],
+    "incentives": ["incentive", "srec", "rec", "tax", "credit", "rebate"],
+    "batteries": ["battery", "powerwall", "enphase", "backup", "outage"],
+    "maintenance": ["panel", "cleaning", "maintenance", "warranty", "equipment"],
+    "troubleshooting": ["troubleshoot", "issue", "problem", "error"],
+    "installation": ["install", "pto", "permission", "interconnection"],
+  };
+  
+  const tags = categoryMap[category] || [category];
+  
+  return concepts.filter(c => 
+    tags.some(tag => 
+      c.tags.some(t => t.toLowerCase().includes(tag)) ||
+      c.title.toLowerCase().includes(tag)
+    )
   );
 }
