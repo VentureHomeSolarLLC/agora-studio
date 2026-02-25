@@ -38,8 +38,8 @@ export interface EngramFormData {
   skill: SkillInput;
   concepts?: ConceptInput[];
   lessons?: LessonInput[];
-  rawContent?: string; // For brain dump mode
-  aiExtracted?: any; // AI analysis results
+  rawContent?: string;
+  aiAnalysis?: any;
 }
 
 export const CATEGORIES = [
@@ -84,6 +84,7 @@ export const CONTENT_TYPE_CONFIG = {
     audience: ['agent'],
   },
 };
+
 export const TAG_SUGGESTIONS = [
   'credit', 'fico', 'battery', 'solar', 'tpo', 'loan', 'lease', 'ppa',
   'utility', 'interconnection', 'net-metering', 'incentives', 'tax-credit',
