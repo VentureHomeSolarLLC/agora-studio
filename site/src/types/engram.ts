@@ -84,3 +84,8 @@ export const CONTENT_TYPE_CONFIG = {
     audience: ['agent'],
   },
 };
+export const TAG_SUGGESTIONS = [
+  'credit', 'fico', 'battery', 'solar', 'tpo', 'loan', 'lease', 'ppa',
+  'utility', 'interconnection', 'net-metering', 'incentives', 'tax-credit',
+  'srec', 'enphase', 'tesla', 'powerwall', 'storm', 'outage', 'repair', 'warranty',
+];
