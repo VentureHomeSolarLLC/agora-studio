@@ -19,17 +19,13 @@ interface PageData {
   sections: PageSection[];
 }
 
-// Mock available concepts - in production, fetch from API
-const AVAILABLE_CONCEPTS = [
-  { id: "battery-add-on-existing-system", title: "Adding a Battery to Your Existing Solar System" },
-  { id: "battery-sizing", title: "Choosing the Right Battery Size" },
-  { id: "battery-outage-tips", title: "Maximizing Battery Life During Outages" },
-  { id: "net-metering", title: "Understanding Net Metering" },
-  { id: "state-incentives-overview", title: "State Solar Incentives Overview" },
-  { id: "winter-solar-faq", title: "Winter Solar FAQ" },
-  { id: "panel-cleaning", title: "Solar Panel Cleaning Guide" },
-  { id: "equipment-failure", title: "What to Do If Equipment Fails" },
-];
+interface Concept {
+  slug: string;
+  concept_id: string;
+  title: string;
+  tags: string[];
+  excerpt?: string;
+}
 
 export default function PageBuilder() {
   const { data: session, status } = useSession();
@@ -37,12 +33,28 @@ export default function PageBuilder() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [newConceptBanner, setNewConceptBanner] = useState<{id: string, title: string} | null>(null);
+  const [availableConcepts, setAvailableConcepts] = useState<Concept[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageData, setPageData] = useState<PageData>({
     title: "",
     slug: "",
     description: "",
     sections: [],
   });
+
+  // Fetch real concepts from API
+  useEffect(() => {
+    fetch("/api/concepts")
+      .then(res => res.json())
+      .then(data => {
+        setAvailableConcepts(data.concepts || []);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch concepts:", err);
+        setIsLoading(false);
+      });
+  }, []);
 
   // Check for newly created concept from query params
   useEffect(() => {
@@ -78,19 +90,22 @@ export default function PageBuilder() {
     return null;
   }
 
-  const filteredConcepts = AVAILABLE_CONCEPTS.filter(
+  // Search across title, tags, and excerpt
+  const filteredConcepts = availableConcepts.filter(
     c => c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         c.id.toLowerCase().includes(searchQuery.toLowerCase())
+         c.concept_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         c.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+         (c.excerpt && c.excerpt.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const addSection = (concept: typeof AVAILABLE_CONCEPTS[0]) => {
+  const addSection = (concept: Concept) => {
     setPageData(prev => ({
       ...prev,
       sections: [
         ...prev.sections,
         {
-          id: `${concept.id}-${Date.now()}`,
-          conceptId: concept.id,
+          id: `${concept.slug}-${Date.now()}`,
+          conceptId: concept.slug,
           title: concept.title,
         },
       ],
@@ -298,25 +313,44 @@ export default function PageBuilder() {
               />
             </div>
 
-            <div className="space-y-2 max-h-[500px] overflow-y-auto">
-              {filteredConcepts.map((concept) => (
-                <button
-                  key={concept.id}
-                  onClick={() => addSection(concept)}
-                  className="w-full text-left p-3 rounded-lg border border-[#B1C3BD]/30 hover:border-[#7AEFB1] hover:bg-[#7AEFB1]/10 transition-colors group"
-                >
-                  <div className="flex items-center gap-2">
-                    <Plus className="w-4 h-4 text-[#7AEFB1] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <span className="text-sm text-[#231F20]">{concept.title}</span>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="w-8 h-8 bg-[#F7FF96] rounded-full animate-pulse mx-auto" />
+                <p className="text-[#231F20]/50 mt-2">Loading articles...</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {filteredConcepts.map((concept) => (
+                  <button
+                    key={concept.slug}
+                    onClick={() => addSection(concept)}
+                    className="w-full text-left p-3 rounded-lg border border-[#B1C3BD]/30 hover:border-[#7AEFB1] hover:bg-[#7AEFB1]/10 transition-colors group"
+                  >
+                    <div className="flex items-start gap-2">
+                      <Plus className="w-4 h-4 text-[#7AEFB1] opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
+                      <div className="flex-1">
+                        <span className="text-sm text-[#231F20] font-medium block">{concept.title}</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {concept.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="text-xs bg-[#F3F3EA] text-[#231F20]/50 px-2 py-0.5 rounded-full">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+                {filteredConcepts.length === 0 && (
+                  <div className="text-center text-[#231F20]/50 py-4">
+                    <p>No articles found</p>
+                    {searchQuery && (
+                      <p className="text-sm mt-1">Try a different search term</p>
+                    )}
                   </div>
-                </button>
-              ))}
-              {filteredConcepts.length === 0 && (
-                <p className="text-center text-[#231F20]/50 py-4">
-                  No articles found
-                </p>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
