@@ -3,10 +3,16 @@ engram_id: battery-add-on
 title: "Adding a Battery to Your Existing Solar System"
 description: "Complete guide to battery add-ons, from compatibility to installation"
 category: post-install
-audience: [customer]
-tags: [battery, add-on, upgrade, storage, backup]
-created: 2026-02-24
-updated: 2026-02-24
+audience:
+  - customer
+tags:
+  - battery
+  - add-on
+  - upgrade
+  - storage
+  - backup
+created: "2026-02-24"
+updated: "2026-02-24"
 ---
 
 # Adding a Battery to Your Existing Solar System

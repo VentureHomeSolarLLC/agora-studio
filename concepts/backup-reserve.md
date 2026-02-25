@@ -1,16 +1,19 @@
-# Concept: Backup Reserve
-
-## YAML Frontmatter
-
-```yaml
 ---
 concept_id: backup-reserve
 title: "What Is Backup Reserve and How Should I Set It?"
 content_type: concept
-audience: [customer, agent]
-tags: [battery, settings, backup-power, reserve, outage]
-created: 2026-02-24
-author: venture-home-kb
+audience:
+  - customer
+  - agent
+tags:
+  - battery
+  - settings
+  - backup-power
+  - reserve
+  - outage
+created: "2026-02-24"
+updated: "2026-02-24"
+author: "venture-home-kb"
 used_by_engrams:
   - battery-add-on
   - power-outage
@@ -21,17 +24,16 @@ related_concepts:
   - powerwall-settings
   - enphase-battery-settings
 ---
-```
 
-## Content
+# What Is Backup Reserve and How Should I Set It?
 
 Your backup reserve is the percentage of your battery's capacity that is held exclusively for power outages. This energy is never used for daily cycling — it stays locked and available only when the grid goes down.
 
-### Why It Matters
+## Why It Matters
 
 Think of your battery like a water tank. The backup reserve is the emergency supply at the bottom that you never touch during normal operation. When the grid fails, that's what keeps your lights on.
 
-### Recommended Settings
+## Recommended Settings
 
 **Venture Home recommends: 10-20% reserve**
 
@@ -41,7 +43,7 @@ This corresponds to a depth of discharge of 80-90%, which is the sweet spot for 
 - **Preserves daily savings**: Leaving 80-90% available for daily cycling maximizes your energy bill reduction
 - **Extends battery life**: Operating within this range reduces stress on battery cells
 
-### How to Adjust
+## How to Adjust
 
 **Tesla Powerwall:**
 1. Open Tesla App
@@ -55,7 +57,7 @@ This corresponds to a depth of discharge of 80-90%, which is the sweet spot for 
 3. Go to Settings > Backup Reserve
 4. Adjust the slider
 
-### Common Mistakes
+## Common Mistakes
 
 ❌ **Setting reserve to 50%+**
 - You're holding half your battery hostage for a hypothetical outage
@@ -72,11 +74,11 @@ This corresponds to a depth of discharge of 80-90%, which is the sweet spot for 
 - Still leaves 80% for daily cycling and bill savings
 - Can be temporarily increased to 100% when storms approach
 
-### During Storms
+## During Storms
 
-Both Tesla and Enphase offer automatic storm pre-charging (Storm Watch / Storm Guard). When enabled, your battery will charge to 100% before severe weather arrives, regardless of your normal reserve setting. See [[storm-guard]] for details.
+Both Tesla and Enphase offer automatic storm pre-charging (Storm Watch / Storm Guard). When enabled, your battery will charge to 100% before severe weather arrives, regardless of your normal reserve setting.
 
-### Quick Reference
+## Quick Reference
 
 | Reserve Setting | Typical Backup Duration* | Best For |
 |----------------|------------------------|----------|

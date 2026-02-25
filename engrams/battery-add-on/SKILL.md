@@ -7,6 +7,7 @@ triggers:
   - "battery upgrade"
   - "get a battery"
   - "storage system"
+  - "battery backup"
 required_concepts:
   - battery-add-on
   - backup-reserve

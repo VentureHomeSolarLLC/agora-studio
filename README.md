@@ -1,47 +1,70 @@
 # Agora Studio - Visual Knowledge Base Builder
 
-A unified knowledge management platform that bridges customer-facing documentation, internal knowledge base, and AI agent skills.
+A unified knowledge management system for Venture Home that powers customer self-help, internal documentation, and AI agent skills.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install -r api/requirements.txt
-npm install
+# Clone the repo
+git clone https://github.com/VentureHomeSolarLLC/agora-studio.git
+cd agora-studio
 
-# Start development server
-npm run dev        # Frontend (React)
-python api/main.py # Backend (FastAPI)
+# Install Python dependencies
+cd api
+pip install -r requirements.txt
+cd ..
+
+# Start the API server
+cd api
+python main.py
+
+# In another terminal, start the frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-## Project Structure
+## Architecture
 
 ```
 agora-studio/
 ├── concepts/           # Reusable knowledge atoms
-│   ├── backup-reserve.md
-│   ├── net-metering-basics.md
-│   └── storm-guard.md
 ├── engrams/           # Knowledge units with skills
-│   ├── battery-add-on/
-│   │   ├── _index.md
-│   │   ├── SKILL.md
-│   │   └── concepts/
-│   └── power-outage/
-│       ├── _index.md
-│       ├── SKILL.md
-│       └── concepts/
-├── customer-pages/    # Assembled human-facing content
-│   └── manifests/
-├── api/               # Python backend
-│   ├── main.py
-│   ├── classifier.py
-│   └── git_ops.py
-└── scripts/           # Build & deploy
-    ├── assemble-page.js
-    └── deploy.sh
+├── lessons/           # Learned experiences
+├── customer-pages/    # Assembled content
+├── api/               # Python FastAPI service
+└── scripts/           # Build automation
 ```
 
-## Contributing
+## Documentation
 
-See [CONTRIBUTING.md](CONTRIBUTING.md)
+- [Data Model & Architecture](docs/DATA_MODEL.md)
+- [API Reference](docs/API.md) (coming soon)
+- [Contributing Guide](docs/CONTRIBUTING.md) (coming soon)
+
+## Project Status
+
+**Phase 1: Foundation** (In Progress)
+- ✅ Data model defined
+- 🔄 GitHub repo scaffold
+- 🔄 Python classification service
+- ⏳ Content conversion
+
+**Phase 2: Human Interfaces** (Pending)
+- Visual Engram Creator
+- Page Builder
+- Customer site deployment
+
+**Phase 3: Agent Integration** (Pending)
+- Forge skills sync
+- Engram search
+- Local workspace sync
+
+**Phase 4: Intelligence** (Pending)
+- LLM chat for customers
+- LLM chat for employees
+- Autonomous agents
+
+## License
+
+© 2026 Venture Home Solar, LLC
