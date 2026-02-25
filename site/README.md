@@ -2,14 +2,22 @@
 
 Venture Home Knowledge Base - Built with Next.js + NextAuth + Tailwind CSS
 
+![Deploy Status](https://github.com/VentureHomeSolarLLC/agora-studio/actions/workflows/deploy.yml/badge.svg)
+
+**Live Site:** https://help.venturehome.com
+
 ## Features
 
 - 🔐 Google OAuth (restricted to @venturehome.com)
 - 📚 58+ Concepts (knowledge articles)
 - ⚡ 6 Engrams (AI skills)
 - 🔍 Full-text search
-- 🎨 Venture Home brand colors
+- 🎨 Venture Home brand colors & Bagoss font
 - 📱 Responsive design
+
+## Auto-Deployment
+
+Pushes to `main` branch automatically deploy to https://help.venturehome.com via GitHub Actions.
 
 ## Development
 
@@ -44,24 +52,6 @@ npm run build
 npm start
 ```
 
-## Deployment Options
-
-### Option 1: Vercel (Recommended)
-
-1. Push to GitHub
-2. Connect repo to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy
-
-### Option 2: Self-Hosted
-
-```bash
-npm run build
-npm start
-# or use PM2
-pm2 start npm --name "agora-studio" -- start
-```
-
 ## Brand Colors
 
 - Charcoal: #231F20
@@ -81,3 +71,7 @@ site/
 ├── public/            # Static assets
 └── next.config.ts
 ```
+
+---
+
+*Last auto-deployed: $(date)*
