@@ -20,12 +20,22 @@
   --color-mint: var(--mint);
   --color-sage: var(--sage);
   --color-off-white: var(--off-white);
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Bagoss', 'Inter', system-ui, sans-serif;
+}
+
+/* Bagoss Font Face */
+@font-face {
+  font-family: 'Bagoss';
+  src: url('https://map.venturehome.com/assets/BagossStandard-Regular-B25bUcmH.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: 'Bagoss', 'Inter', system-ui, sans-serif;
 }
 
 /* Markdown content styles */
