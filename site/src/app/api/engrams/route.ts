@@ -12,28 +12,31 @@ export async function POST(request: NextRequest) {
     }
 
     const engram = transformToEngram(formData);
-    const basePath = `${process.env.ENGRAMS_PATH || 'engrams-v2'}/${engram.id}`;
+    // Use outputPath from config (customer-pages, concepts, or engrams-v2)
+    const basePath = `${engram.outputPath}/${engram.id}`;
     
     const changes: FileChange[] = Object.entries(engram.files).map(([filename, content]) => ({
       path: `${basePath}/${filename}`,
       content,
     }));
 
-    const result = await createMultipleFiles(changes, `Create engram: ${formData.title}`);
+    const result = await createMultipleFiles(changes, `Create ${formData.contentType}: ${formData.title}`);
 
     return NextResponse.json({
       success: true,
       engram_id: engram.id,
+      content_type: formData.contentType,
+      output_path: engram.outputPath,
       commit_sha: result.sha,
       commit_url: result.html_url,
-      preview_url: `https://help.venturehome.com/engrams/${engram.id}`,
+      preview_url: `https://help.venturehome.com/${engram.outputPath}/${engram.id}`,
       files_created: result.paths,
     });
 
   } catch (error: any) {
-    console.error('Failed to create engram:', error);
+    console.error('Failed to create:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create engram', details: error.message },
+      { success: false, error: 'Failed to create', details: error.message },
       { status: 500 }
     );
   }

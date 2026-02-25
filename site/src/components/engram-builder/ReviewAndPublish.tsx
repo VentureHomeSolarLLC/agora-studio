@@ -1,18 +1,26 @@
-import { EngramFormData } from '@/types/engram';
+import { EngramFormData, CONTENT_TYPE_CONFIG } from '@/types/engram';
 
 interface ReviewAndPublishProps {
   data: EngramFormData;
   onPublish: () => void;
   isSubmitting: boolean;
+  contentType: 'customer' | 'internal' | 'agent';
 }
 
-export function ReviewAndPublish({ data, onPublish, isSubmitting }: ReviewAndPublishProps) {
+export function ReviewAndPublish({ data, onPublish, isSubmitting, contentType }: ReviewAndPublishProps) {
+  const config = CONTENT_TYPE_CONFIG[contentType];
+  
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold mb-4">Review & Publish</h2>
 
       <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-        <h3 className="font-medium text-gray-900">Engram Summary</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="px-3 py-1 bg-[#F7FF96] text-gray-900 rounded-full text-sm font-medium">
+            {config.label}
+          </span>
+          <span className="text-gray-500">→ {config.outputPath}</span>
+        </div>
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
@@ -22,14 +30,6 @@ export function ReviewAndPublish({ data, onPublish, isSubmitting }: ReviewAndPub
           <div>
             <span className="text-gray-500">Category:</span>
             <p className="font-medium capitalize">{data.category || 'Not set'}</p>
-          </div>
-          <div>
-            <span className="text-gray-500">Difficulty:</span>
-            <p className="font-medium capitalize">{data.skill.difficulty}</p>
-          </div>
-          <div>
-            <span className="text-gray-500">Time Estimate:</span>
-            <p className="font-medium">{data.skill.time_estimate}</p>
           </div>
         </div>
 
@@ -46,33 +46,32 @@ export function ReviewAndPublish({ data, onPublish, isSubmitting }: ReviewAndPub
           </div>
         </div>
 
+        <div>
+          <span className="text-gray-500 text-sm">Audience:</span>
+          <p className="font-medium capitalize">{data.audience?.join(', ') || config.audience.join(', ')}</p>
+        </div>
+
         <div className="border-t pt-4 mt-4">
-          <h4 className="font-medium text-gray-900 mb-2">
-            Files that will be created ({2 + (data.concepts?.length || 0) + (data.lessons?.length || 0)}):
-          </h4>
-          <ul className="text-sm text-gray-600 space-y-1">
-            <li>📄 _index.md (entry point)</li>
-            <li>📄 SKILL.md (procedure)</li>
-            {data.concepts?.map((c, i) => (
-              <li key={i}>📄 concepts/{c.title.toLowerCase().replace(/\s+/g, '-')}.md</li>
-            ))}
-            {data.lessons?.map((l, i) => (
-              <li key={i}>📄 lessons/{l.date}-{l.title.toLowerCase().replace(/\s+/g, '-')}.md</li>
-            ))}
-          </ul>
+          <h4 className="font-medium text-gray-900 mb-2">Content Preview</h4>
+          <div className="bg-white rounded p-3 text-sm text-gray-600 max-h-40 overflow-y-auto">
+            {data.rawContent?.substring(0, 300)}
+            {data.rawContent && data.rawContent.length > 300 ? '...' : ''}
+          </div>
         </div>
       </div>
 
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <p className="text-sm text-yellow-800">
           <strong>Note:</strong> Publishing will create a commit in the agora-studio repository.
-          The engram will be live after the next Vercel deployment.
+          {contentType === 'agent' ? ' AI agents will be able to use these instructions.' : 
+           contentType === 'customer' ? ' This will appear on the help site for customers.' :
+           ' This will be available for employee reference.'}
         </p>
       </div>
 
       <button
         onClick={onPublish}
-        disabled={isSubmitting || !data.title || !data.category || data.skill.steps.length === 0}
+        disabled={isSubmitting || !data.title || !data.category}
         className="w-full bg-gray-900 text-white px-6 py-4 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {isSubmitting ? (
@@ -84,7 +83,7 @@ export function ReviewAndPublish({ data, onPublish, isSubmitting }: ReviewAndPub
             Publishing...
           </>
         ) : (
-          'Publish Engram'
+          `Publish ${config.label}`
         )}
       </button>
     </div>
