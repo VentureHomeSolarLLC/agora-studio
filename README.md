@@ -68,3 +68,4 @@ agora-studio/
 ## License
 
 © 2026 Venture Home Solar, LLC
+trigger deploy
