@@ -5,13 +5,13 @@ import { Providers } from "@/components/providers";
 import { Navigation } from "@/components/navigation";
 
 const inter = Inter({
-  variable: "--font-geist-sans",
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Agora Studio | Venture Home Knowledge Base",
-  description: "The unified knowledge base for Venture Home Solar",
+  title: "Help Center | Venture Home Solar",
+  description: "Get help with your solar system, billing, incentives, and more. Venture Home customer support.",
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`}>
         <Providers>
           <Navigation />
           <main className="min-h-screen">
