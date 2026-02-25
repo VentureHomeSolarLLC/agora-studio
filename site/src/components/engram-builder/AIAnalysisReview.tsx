@@ -15,9 +15,10 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const config = CONTENT_TYPE_CONFIG[data.contentType];
   const analysis = data.aiAnalysis;
   
-  const [editedTone, setEditedTone] = useState(analysis?.tone?.suggestedEdit || '');
-  const [editedAgentVersion, setEditedAgentVersion] = useState(analysis?.suggestedEdit || '');
-  const [editedSteps, setEditedSteps] = useState(analysis?.steps || []);
+  const [editedTone, setEditedTone] = useState(analysis?.toneAnalysis?.suggestedEdit || '');
+  const [editedAfter, setEditedAfter] = useState(analysis?.beforeAfter?.after || '');
+  const [showBeforeAfter, setShowBeforeAfter] = useState(false);
+  const [addedSections, setAddedSections] = useState<string[]>([]);
   const [activeEdit, setActiveEdit] = useState<string | null>(null);
 
   if (isAnalyzing) {
@@ -25,6 +26,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       <div className="space-y-6 text-center py-12">
         <div className="w-16 h-16 border-4 border-[#F7FF96] border-t-transparent rounded-full animate-spin mx-auto"></div>
         <h2 className="text-xl font-semibold">AI is analyzing your content...</h2>
+        <p className="text-gray-500">Generating improvements and suggested additions</p>
       </div>
     );
   }
@@ -38,20 +40,28 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     );
   }
 
-  const applyToneEdit = () => { onChange({ rawContent: editedTone }); setActiveEdit(null); };
-  const applyAgentRewrite = () => { onChange({ rawContent: editedAgentVersion }); setActiveEdit(null); };
-  const updateStep = (index: number, field: string, value: string) => {
-    const newSteps = [...editedSteps];
-    newSteps[index] = { ...newSteps[index], [field]: value };
-    setEditedSteps(newSteps);
+  const applyFullEdit = () => {
+    onChange({ rawContent: editedAfter });
+    setActiveEdit(null);
+  };
+
+  const addSuggestedSection = (sectionContent: string) => {
+    const currentContent = data.rawContent || '';
+    onChange({ rawContent: currentContent + '\n\n' + sectionContent });
+    setAddedSections([...addedSections, sectionContent.substring(0, 50)]);
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">AI Analysis Results</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">AI Analysis Results</h2>
+        <button onClick={onAnalyze} className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded">Re-analyze</button>
+      </div>
 
+      {/* CUSTOMER CONTENT */}
       {data.contentType === 'customer' && (
         <div className="space-y-4">
+          {/* Readability Score */}
           {analysis.readability && (
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
               <h3 className="font-medium text-purple-900">Readability: {analysis.readability.gradeLevel} level</h3>
@@ -64,28 +74,110 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
             </div>
           )}
 
-          {analysis.tone?.suggestedEdit && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex justify-between mb-2">
-                <h3 className="font-medium text-yellow-900">Tone Improvement</h3>
-                {activeEdit === 'tone' ? (
-                  <button onClick={applyToneEdit} className="text-xs px-3 py-1 bg-yellow-500 text-white rounded">Apply</button>
-                ) : (
-                  <button onClick={() => { setEditedTone(analysis.tone.suggestedEdit); setActiveEdit('tone'); }} className="text-xs px-3 py-1 bg-yellow-200 rounded">Edit</button>
-                )}
+          {/* Suggested Additions with Add Buttons */}
+          {analysis.suggestedAdditions?.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-medium text-blue-900 mb-3">Suggested Content to Add</h3>
+              <div className="space-y-3">
+                {analysis.suggestedAdditions.map((addition: any, i: number) => (
+                  <div key={i} className="bg-white p-3 rounded border border-blue-300">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium text-sm">{addition.section}</h4>
+                      {addedSections.includes(addition.content.substring(0, 50)) ? (
+                        <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded">✓ Added</span>
+                      ) : (
+                        <button 
+                          onClick={() => addSuggestedSection(addition.content)}
+                          className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          + Add This Section
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mb-1">Placement: {addition.placement}</p>
+                    <div className="bg-gray-50 p-2 rounded text-sm max-h-32 overflow-y-auto">
+                      {addition.content}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {activeEdit === 'tone' ? (
-                <textarea value={editedTone} onChange={(e) => setEditedTone(e.target.value)} rows={6} className="w-full p-3 border rounded text-sm" />
-              ) : (
-                <div className="bg-white p-3 rounded border"><p className="text-sm line-clamp-4">{analysis.tone.suggestedEdit}</p></div>
-              )}
-              {!activeEdit && <button onClick={() => onChange({ rawContent: analysis.tone.suggestedEdit })} className="mt-2 text-xs px-3 py-1 bg-yellow-200 rounded">Accept As-Is</button>}
             </div>
           )}
 
+          {/* Before/After Comparison */}
+          {analysis.beforeAfter && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium text-gray-900">Before & After Comparison</h3>
+                <button 
+                  onClick={() => setShowBeforeAfter(!showBeforeAfter)}
+                  className="text-xs px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  {showBeforeAfter ? 'Hide' : 'Show'} Comparison
+                </button>
+              </div>
+              
+              {showBeforeAfter && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-3 rounded border">
+                    <h4 className="text-xs font-medium text-gray-500 mb-2 uppercase">Before (Your Version)</h4>
+                    <div className="text-sm text-gray-700 max-h-64 overflow-y-auto whitespace-pre-wrap">
+                      {analysis.beforeAfter.before}
+                    </div>
+                  </div>
+                  <div className="bg-white p-3 rounded border border-green-300">
+                    <h4 className="text-xs font-medium text-green-600 mb-2 uppercase">After (AI Improved)</h4>
+                    <div className="text-sm text-gray-700 max-h-64 overflow-y-auto whitespace-pre-wrap">
+                      {analysis.beforeAfter.after}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Edit the After version */}
+              <div className="mt-4">
+                {activeEdit === 'after' ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editedAfter}
+                      onChange={(e) => setEditedAfter(e.target.value)}
+                      rows={10}
+                      className="w-full p-3 border border-gray-300 rounded text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={applyFullEdit}
+                        className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                      >
+                        Apply This Version
+                      </button>
+                      <button 
+                        onClick={() => setActiveEdit(null)}
+                        className="px-4 py-2 bg-gray-200 rounded text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => { 
+                      setEditedAfter(analysis.beforeAfter.after); 
+                      setActiveEdit('after'); 
+                    }}
+                    className="text-sm px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900"
+                  >
+                    Edit Final Version
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Missing Content */}
           {analysis.missingContent?.length > 0 && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="font-medium text-orange-900 mb-2">Missing Content</h3>
+              <h3 className="font-medium text-orange-900 mb-2">Still Missing</h3>
               <ul className="list-disc list-inside text-sm">
                 {analysis.missingContent.map((item: string, i: number) => <li key={i}>{item}</li>)}
               </ul>
@@ -94,87 +186,10 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {data.contentType === 'agent' && (
-        <div className="space-y-4">
-          {analysis.searchability && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-              <h3 className="font-medium text-indigo-900 mb-2">Searchability Score: {analysis.searchability.score}/10</h3>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex-1 bg-indigo-200 rounded-full h-2">
-                  <div className="bg-indigo-600 h-2 rounded-full" style={{ width: `${(analysis.searchability.score / 10) * 100}%` }}></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {analysis.steps?.length > 0 && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <div className="flex justify-between mb-3">
-                <h3 className="font-medium">Extracted Steps ({analysis.steps.length})</h3>
-                {activeEdit === 'steps' ? (
-                  <button onClick={() => { onChange({ skill: { ...data.skill, steps: editedSteps } }); setActiveEdit(null); }} className="text-xs px-3 py-1 bg-gray-800 text-white rounded">Save</button>
-                ) : (
-                  <button onClick={() => { setEditedSteps(analysis.steps); setActiveEdit('steps'); }} className="text-xs px-3 py-1 bg-gray-200 rounded">Edit</button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {(activeEdit === 'steps' ? editedSteps : analysis.steps).map((step: any, index: number) => (
-                  <div key={index} className="bg-white border rounded p-3">
-                    {activeEdit === 'steps' ? (
-                      <div className="space-y-2">
-                        <input type="text" value={step.title} onChange={(e) => updateStep(index, 'title', e.target.value)} className="w-full px-2 py-1 border rounded text-sm font-medium" />
-                        <textarea value={step.content} onChange={(e) => updateStep(index, 'content', e.target.value)} rows={2} className="w-full px-2 py-1 border rounded text-sm" />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 mb-1"><span className="text-xs text-gray-500">Step {index + 1}</span><span className="text-xs px-2 py-0.5 bg-gray-100 rounded">{step.type}</span></div>
-                        <p className="font-medium text-sm">{step.title}</p>
-                        <p className="text-sm text-gray-600 mt-1">{step.content}</p>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {analysis.missingContent?.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="font-medium text-orange-900 mb-2">Missing Content</h3>
-              <ul className="list-disc list-inside text-sm">{analysis.missingContent.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul>
-            </div>
-          )}
-
-          {analysis.suggestedEdit && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex justify-between mb-2">
-                <h3 className="font-medium text-green-900">AI-Optimized Version</h3>
-                {activeEdit === 'full' ? (
-                  <button onClick={applyAgentRewrite} className="text-xs px-3 py-1 bg-green-600 text-white rounded">Apply</button>
-                ) : (
-                  <button onClick={() => { setEditedAgentVersion(analysis.suggestedEdit); setActiveEdit('full'); }} className="text-xs px-3 py-1 bg-green-200 rounded">Edit</button>
-                )}
-              </div>
-              {activeEdit === 'full' ? (
-                <textarea value={editedAgentVersion} onChange={(e) => setEditedAgentVersion(e.target.value)} rows={8} className="w-full p-3 border rounded text-sm font-mono" />
-              ) : (
-                <div className="bg-white p-3 rounded border max-h-40 overflow-y-auto"><pre className="text-xs whitespace-pre-wrap">{analysis.suggestedEdit.substring(0, 300)}...</pre></div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {data.contentType === 'internal' && analysis.missingContent?.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <h3 className="font-medium text-orange-900 mb-2">Missing Content</h3>
-          <ul className="list-disc list-inside text-sm">{analysis.missingContent.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul>
-        </div>
-      )}
-
+      {/* SUGGESTED TAGS - All Types */}
       {analysis.suggestedTags?.length > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h3 className="font-medium text-green-900 mb-2">AI Suggested Tags</h3>
+          <h3 className="font-medium text-green-900 mb-2">Suggested Tags</h3>
           <div className="flex flex-wrap gap-2">
             {analysis.suggestedTags.map((tag: string, i: number) => (
               <button key={i} onClick={() => { if (!data.tags?.includes(tag)) { onChange({ tags: [...(data.tags || []), tag] }); } }} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm hover:bg-green-200">+ {tag}</button>
