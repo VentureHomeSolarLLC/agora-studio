@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+:root {
+  /* Venture Home Brand Colors */
+  --charcoal: #231F20;
+  --yellow: #F7FF96;
+  --mint: #7AEFB1;
+  --sage: #B1C3BD;
+  --off-white: #F3F3EA;
+  
+  --background: var(--off-white);
+  --foreground: var(--charcoal);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-charcoal: var(--charcoal);
+  --color-yellow: var(--yellow);
+  --color-mint: var(--mint);
+  --color-sage: var(--sage);
+  --color-off-white: var(--off-white);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Markdown content styles */
+.markdown-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--charcoal);
+}
+
+.markdown-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: var(--charcoal);
+  border-bottom: 2px solid var(--yellow);
+  padding-bottom: 0.5rem;
+}
+
+.markdown-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--charcoal);
+}
+
+.markdown-content p {
+  margin-bottom: 1rem;
+  line-height: 1.7;
+}
+
+.markdown-content ul, .markdown-content ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content a {
+  color: var(--charcoal);
+  text-decoration: underline;
+  text-decoration-color: var(--mint);
+  text-decoration-thickness: 2px;
+}
+
+.markdown-content a:hover {
+  background-color: var(--yellow);
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.markdown-content th {
+  background-color: var(--charcoal);
+  color: var(--yellow);
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.markdown-content td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--sage);
+}
+
+.markdown-content tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-content tr:hover td {
+  background-color: var(--off-white);
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid var(--mint);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: #555;
+}
+
+.markdown-content code {
+  background-color: var(--charcoal);
+  color: var(--yellow);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.markdown-content pre {
+  background-color: var(--charcoal);
+  color: var(--off-white);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+.markdown-content hr {
+  border: none;
+  border-top: 2px solid var(--sage);
+  margin: 2rem 0;
+}

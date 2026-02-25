@@ -8,7 +8,7 @@ audience:
 tags:
   - washington-dc
   - dc
-n  - district-of-columbia
+  - district-of-columbia
   - pepco
   - net-metering
   - srec
