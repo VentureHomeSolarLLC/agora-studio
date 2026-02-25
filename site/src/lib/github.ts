@@ -11,7 +11,7 @@ export interface FileChange {
 }
 
 export async function createOrUpdateFile(path: string, content: string, message: string) {
-  const { data: existing } = await octokit.repos.getContent({
+  const existing = await octokit.repos.getContent({
     owner: OWNER, repo: REPO, path, ref: BRANCH,
   }).catch(() => null);
 
@@ -21,8 +21,8 @@ export async function createOrUpdateFile(path: string, content: string, message:
     branch: BRANCH,
   };
 
-  if (existing && 'sha' in existing) {
-    params.sha = existing.sha;
+  if (existing && 'data' in existing && 'sha' in existing.data) {
+    params.sha = (existing.data as any).sha;
   }
 
   const { data } = await octokit.repos.createOrUpdateFileContents(params);
