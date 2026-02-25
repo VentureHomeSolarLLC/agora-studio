@@ -136,7 +136,7 @@ Many states offer additional incentives:
 - **Massachusetts:** ConnectedSolutions program payments
 - **New Jersey:** Upcoming incentive programs
 
-> 💡 **Check our [[state-incentives-overview|State Incentives Guide]]** for details on your state.
+> 💡 **[Check our State Incentives Guide](/article/state-incentives-overview)** for details on your state.
 
 ---
 
@@ -212,12 +212,12 @@ Once you approve, we handle permits, utility applications, and installation.
 
 ## Related Articles
 
-- [[battery-sizing|Choosing the Right Battery Size]]
-- [[battery-outage-tips|Maximizing Battery Life During Outages]]
-- [[enphase-battery-settings|Enphase Battery Settings Guide]]
-- [[tesla-powerwall-settings|Tesla Powerwall Settings Guide]]
-- [[backup-reserve|Understanding Backup Reserve]]
-- [[state-incentives-overview|Solar Incentives by State]]
+- [Choosing the Right Battery Size](/article/battery-sizing)
+- [Maximizing Battery Life During Outages](/article/battery-outage-tips)
+- [Enphase Battery Settings Guide](/article/enphase-battery-settings)
+- [Tesla Powerwall Settings Guide](/article/tesla-powerwall-settings)
+- [Understanding Backup Reserve](/article/backup-reserve)
+- [Solar Incentives by State](/article/state-incentives-overview)
 
 ---
 
