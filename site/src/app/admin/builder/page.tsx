@@ -43,19 +43,28 @@ function BuilderContent() {
     sections: [],
   });
 
-  // Fetch real concepts from API
+  // Fetch concepts - all initially, then search via API
   useEffect(() => {
-    fetch("/api/concepts")
-      .then(res => res.json())
-      .then(data => {
+    const fetchConcepts = async () => {
+      setIsLoading(true);
+      try {
+        const url = searchQuery 
+          ? `/api/concepts?q=${encodeURIComponent(searchQuery)}`
+          : "/api/concepts";
+        const res = await fetch(url);
+        const data = await res.json();
         setAvailableConcepts(data.concepts || []);
-        setIsLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error("Failed to fetch concepts:", err);
+      } finally {
         setIsLoading(false);
-      });
-  }, []);
+      }
+    };
+    
+    // Debounce search
+    const timeout = setTimeout(fetchConcepts, searchQuery ? 300 : 0);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   // Check for newly created concept from query params
   useEffect(() => {
@@ -91,13 +100,8 @@ function BuilderContent() {
     return null;
   }
 
-  // Search across title, tags, and excerpt
-  const filteredConcepts = availableConcepts.filter(
-    c => c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         c.concept_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         c.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-         (c.excerpt && c.excerpt.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Concepts are already filtered by the API based on searchQuery
+  const filteredConcepts = availableConcepts;
 
   const addSection = (concept: Concept) => {
     setPageData(prev => ({
