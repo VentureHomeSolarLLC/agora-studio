@@ -56,18 +56,32 @@ async function analyzeCustomerContent(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: `You are an expert at analyzing customer support content. Extract key information and suggest improvements.
+        content: `You are an expert at analyzing and improving customer support content for a solar company. Your job is to make content friendly, accessible, and easy to understand.
 
-Return JSON with this structure:
+ANALYZE FOR:
+1. **Key Points** - 3-5 main takeaways customers need to know
+2. **FAQs** - Anticipate customer questions and provide clear answers
+3. **Readability** - Check reading level (target: middle school to high school). Flag technical jargon.
+4. **Tone** - Should be upbeat, friendly, and encouraging. Not corporate or stiff.
+5. **Missing Content** - What's NOT covered that customers will wonder about?
+6. **Suggested Edit** - Rewrite the content to be more customer-friendly unless it's already perfect
+
+Return JSON:
 {
-  "keyPoints": ["3-5 main takeaways"],
+  "keyPoints": ["..."],
   "faqs": [{"question": "...", "answer": "..."}],
-  "clarity": {
-    "score": 1-10,
-    "issues": ["unclear sections"],
-    "improvements": ["specific suggestions"]
+  "readability": {
+    "gradeLevel": "middle|high|college",
+    "issues": ["technical terms used", "complex sentences", "jargon"],
+    "score": 1-10
   },
-  "suggestedTags": ["relevant tags"],
+  "tone": {
+    "current": "description of current tone",
+    "recommended": "friendlier, more upbeat version",
+    "suggestedEdit": "full rewritten text if improvements needed, or null if perfect"
+  },
+  "missingContent": ["what's not covered", "questions customers will still have"],
+  "suggestedTags": ["..."],
   "concepts": [{"title": "...", "content": "..."}],
   "warnings": ["important caveats"]
 }`
@@ -90,15 +104,25 @@ async function analyzeInternalContent(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: `You are an expert at analyzing internal business documentation. Extract technical details, procedures, and edge cases.
+        content: `You are an expert at analyzing internal business documentation. Extract structure and identify gaps.
 
-Return JSON with this structure:
+ANALYZE FOR:
+1. **Sections** - Break content into logical sections with importance levels (high/medium/low)
+2. **Technical Details** - Extract key technical information, specs, requirements
+3. **Edge Cases** - What scenarios aren't covered? What can go wrong?
+4. **Missing Content** - What would a new employee still not know after reading this?
+5. **Related Topics** - What other internal docs should this link to?
+6. **Suggested Improvements** - How to make this more complete and actionable
+
+Return JSON:
 {
   "sections": [{"title": "...", "content": "...", "importance": "high|medium|low"}],
-  "technicalDetails": ["key technical info"],
-  "edgeCases": ["what can go wrong"],
-  "relatedTopics": ["related concepts to link"],
-  "suggestedTags": ["relevant tags"],
+  "technicalDetails": ["..."],
+  "edgeCases": ["..."],
+  "missingContent": ["what's not covered", "gaps in the documentation"],
+  "relatedTopics": ["topics to link to"],
+  "suggestedImprovements": ["specific additions needed"],
+  "suggestedTags": ["..."],
   "lessons": [{"title": "...", "scenario": "...", "solution": "..."}]
 }`
       },
@@ -120,25 +144,84 @@ async function analyzeAgentInstructions(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: `You are an expert at creating AI agent instructions. Extract structured procedures from informal descriptions.
+        content: `You are an expert at converting human-written procedures into AI-optimized instructions. You MUST aggressively restructure content for machine consumption.
 
-Return JSON with this structure:
+AGORA/ENGRAM ARCHITECTURE:
+- **SKILL.md** = Core step-by-step procedure. ONLY the essential actions an AI must take.
+- **concepts/** = Reference material, conditional logic, background info, decision criteria
+- **lessons/** = Edge cases, exceptions, what went wrong before, troubleshooting
+
+YOUR JOB:
+1. **Aggressively Edit** - Human writing is verbose. AI needs lean, precise instructions. Cut fluff. Use imperative voice. One action per step.
+
+2. **Structure for AI Search:**
+   - Extract clear STEPS for SKILL.md (checkbox or text type)
+   - Extract CONDITIONS/REFERENCE for concepts/ (if X then Y, lookup tables, criteria)
+   - Extract EDGE CASES for lessons/ (exceptions, failures, workarounds)
+
+3. **Optimize for Context Window:**
+   - Break long paragraphs into atomic steps
+   - Make each step independently understandable
+   - Use consistent terminology (tag suggestions help here)
+   - Decision points must be explicit: "IF [condition] THEN [action] ELSE [action]"
+
+4. **Missing Content Detection:**
+   - What prerequisites are assumed but not stated?
+   - What error handling is missing?
+   - What decisions require human judgment vs can be automated?
+
+5. **AI Searchability Score:**
+   - Rate 1-10 how searchable this will be
+   - Suggest specific tags/categories
+   - Identify ambiguous terms that need clarification
+
+Return AGGRESSIVELY REWRITTEN content plus structure:
+
 {
   "steps": [
     {
-      "title": "Step name",
-      "content": "Detailed instructions",
+      "title": "Action-oriented step name",
+      "content": "Precise instructions. No fluff.",
       "type": "text|checkbox|decision",
-      "decisionLogic": "if applicable"
+      "decisionLogic": "IF condition THEN action ELSE action (for decision type)"
     }
   ],
-  "prerequisites": ["what must be true before starting"],
-  "decisionPoints": [{"question": "...", "options": ["..."], "outcomes": ["..."]}],
+  "concepts": [
+    {
+      "title": "Reference topic name",
+      "content": "Background info, criteria, lookup data",
+      "shouldLinkTo": "which steps reference this"
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Edge case name",
+      "scenario": "When this happens...",
+      "handling": "Do this...",
+      "whyItMatters": "Context for the AI"
+    }
+  ],
+  "prerequisites": ["must be true before starting"],
+  "decisionPoints": [
+    {
+      "question": "Decision the AI must make",
+      "criteria": "How to decide from concepts/",
+      "outcomes": ["path A", "path B"]
+    }
+  ],
   "risks": ["what can go wrong"],
-  "edgeCases": [{"scenario": "...", "handling": "..."}],
-  "suggestedTags": ["relevant tags"],
-  "concepts": [{"title": "...", "content": "..."}],
-  "lessons": [{"title": "...", "scenario": "...", "solution": "..."}]
+  "missingContent": [
+    "assumed prerequisites not stated",
+    "missing error handling",
+    "ambiguous decisions needing clarification"
+  ],
+  "searchability": {
+    "score": 1-10,
+    "issues": ["why it's not searchable"],
+    "suggestedTags": ["...", "..."],
+    "improvements": ["how to make it more findable"]
+  },
+  "suggestedEdit": "Aggressively rewritten, AI-optimized version of the full content"
 }`
       },
       {
