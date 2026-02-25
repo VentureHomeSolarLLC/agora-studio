@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Eye, Tag, Users, FileText, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save, Eye, Tag, Users, FileText, CheckCircle, Layout, Plus } from "lucide-react";
 
 interface FormData {
   title: string;
@@ -26,6 +26,8 @@ export default function CreateConceptPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [createdConcept, setCreatedConcept] = useState<FormData | null>(null);
   const [formData, setFormData] = useState<FormData>({
     title: "",
     concept_id: "",
@@ -93,8 +95,8 @@ export default function CreateConceptPage() {
       });
 
       if (response.ok) {
-        alert("Concept created successfully! It will be deployed shortly.");
-        router.push("/concepts");
+        setCreatedConcept(formData);
+        setShowSuccess(true);
       } else {
         const error = await response.text();
         alert(`Error: ${error}`);
@@ -104,6 +106,16 @@ export default function CreateConceptPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleAddToPage = () => {
+    // Pass the created concept to the builder via query params
+    const params = new URLSearchParams();
+    if (createdConcept) {
+      params.set("addConcept", createdConcept.concept_id);
+      params.set("conceptTitle", createdConcept.title);
+    }
+    router.push(`/admin/builder?${params.toString()}`);
   };
 
   const generatedMarkdown = `---
@@ -120,6 +132,58 @@ ${formData.tags.map(t => `  - ${t}`).join("\n")}
 
 ${formData.content}
 `;
+
+  // Success view
+  if (showSuccess && createdConcept) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-white rounded-xl p-8 shadow-sm border border-[#B1C3BD]/30 text-center">
+          <div className="w-16 h-16 bg-[#7AEFB1] rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-8 h-8 text-[#231F20]" />
+          </div>
+          <h1 className="text-2xl font-bold text-[#231F20] mb-2">
+            Article Created!
+          </h1>
+          <p className="text-[#231F20]/60 mb-8">
+            "{createdConcept.title}" has been created successfully.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={handleAddToPage}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-[#F7FF96] text-[#231F20] rounded-xl font-medium hover:bg-[#7AEFB1] transition-colors"
+            >
+              <Layout className="w-5 h-5" />
+              Add to a Page
+            </button>
+            <Link
+              href="/admin/create"
+              onClick={() => {
+                setShowSuccess(false);
+                setFormData({
+                  title: "",
+                  concept_id: "",
+                  audience: ["customer"],
+                  tags: [],
+                  content: "",
+                });
+              }}
+              className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-[#B1C3BD]/30 text-[#231F20] rounded-xl font-medium hover:border-[#F7FF96] transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Create Another
+            </Link>
+            <Link
+              href="/concepts"
+              className="flex items-center justify-center gap-2 px-6 py-3 text-[#231F20]/60 hover:text-[#231F20] transition-colors"
+            >
+              View All Articles →
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

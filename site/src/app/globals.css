@@ -20,41 +20,12 @@
   --color-mint: var(--mint);
   --color-sage: var(--sage);
   --color-off-white: var(--off-white);
-  --font-sans: 'Bagoss', 'Inter', system-ui, sans-serif;
-}
-
-/* Bagoss Font Face */
-@font-face {
-  font-family: 'Bagoss';
-  src: url('https://venturehome.com/fonts/BagossStandard-Regular.woff2') format('woff2'),
-       url('https://venturehome.com/fonts/BagossStandard-Regular.woff') format('woff');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Bagoss';
-  src: url('https://venturehome.com/fonts/BagossStandard-Medium.woff2') format('woff2'),
-       url('https://venturehome.com/fonts/BagossStandard-Medium.woff') format('woff');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Bagoss';
-  src: url('https://venturehome.com/fonts/BagossStandard-SemiBold.woff2') format('woff2'),
-       url('https://venturehome.com/fonts/BagossStandard-SemiBold.woff') format('woff');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Bagoss', 'Inter', system-ui, sans-serif;
 }
 
 /* Markdown content styles */

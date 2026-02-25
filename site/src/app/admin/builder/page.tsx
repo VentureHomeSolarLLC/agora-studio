@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Layout, Search } from "lucide-react";
+import { ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Layout, Search, Sparkles } from "lucide-react";
 
 interface PageSection {
   id: string;
@@ -34,13 +34,36 @@ const AVAILABLE_CONCEPTS = [
 export default function PageBuilder() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const [newConceptBanner, setNewConceptBanner] = useState<{id: string, title: string} | null>(null);
   const [pageData, setPageData] = useState<PageData>({
     title: "",
     slug: "",
     description: "",
     sections: [],
   });
+
+  // Check for newly created concept from query params
+  useEffect(() => {
+    const addConcept = searchParams.get("addConcept");
+    const conceptTitle = searchParams.get("conceptTitle");
+    if (addConcept && conceptTitle) {
+      setNewConceptBanner({ id: addConcept, title: conceptTitle });
+      // Auto-add to sections
+      setPageData(prev => ({
+        ...prev,
+        sections: [
+          ...prev.sections,
+          {
+            id: `${addConcept}-${Date.now()}`,
+            conceptId: addConcept,
+            title: conceptTitle,
+          },
+        ],
+      }));
+    }
+  }, [searchParams]);
 
   if (status === "loading") {
     return (
@@ -141,6 +164,24 @@ export default function PageBuilder() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* New Concept Banner */}
+        {newConceptBanner && (
+          <div className="mb-6 bg-[#7AEFB1] rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 text-[#231F20]" />
+              <span className="text-[#231F20] font-medium">
+                Added "{newConceptBanner.title}" to your page!
+              </span>
+            </div>
+            <button
+              onClick={() => setNewConceptBanner(null)}
+              className="text-[#231F20]/60 hover:text-[#231F20]"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left: Page Settings & Sections */}
           <div className="lg:col-span-2 space-y-6">
