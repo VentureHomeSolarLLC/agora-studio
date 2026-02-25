@@ -108,7 +108,9 @@ export default function NewEngramPage() {
         });
       }
 
-      setStep(5);
+      // DON'T advance to step 5 - stay on step 4 to show results
+      // setStep(5) removed
+      
     } catch (error: any) {
       setAnalysisError(error.message);
     } finally {
@@ -200,7 +202,8 @@ export default function NewEngramPage() {
           <AIAnalysisReview
             data={formData}
             onChange={updateFormData}
-            onContinue={handleAIAnalysis}
+            onAnalyze={handleAIAnalysis}
+            onContinue={() => setStep(5)}
             isAnalyzing={isAnalyzing}
           />
         )}

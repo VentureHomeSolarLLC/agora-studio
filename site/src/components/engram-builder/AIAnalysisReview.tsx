@@ -3,11 +3,12 @@ import { EngramFormData, CONTENT_TYPE_CONFIG } from '@/types/engram';
 interface AIAnalysisReviewProps {
   data: EngramFormData;
   onChange: (updates: Partial<EngramFormData>) => void;
+  onAnalyze: () => void;
   onContinue: () => void;
   isAnalyzing: boolean;
 }
 
-export function AIAnalysisReview({ data, onChange, onContinue, isAnalyzing }: AIAnalysisReviewProps) {
+export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnalyzing }: AIAnalysisReviewProps) {
   const config = CONTENT_TYPE_CONFIG[data.contentType];
   const analysis = data.aiAnalysis;
 
@@ -25,9 +26,9 @@ export function AIAnalysisReview({ data, onChange, onContinue, isAnalyzing }: AI
     return (
       <div className="space-y-6">
         <h2 className="text-xl font-semibold">AI Analysis</h2>
-        <p className="text-gray-500">Click continue to analyze your {config.label.toLowerCase()} with GPT-4.</p>
+        <p className="text-gray-500">Click analyze to process your {config.label.toLowerCase()} with GPT-4.</p>
         <button
-          onClick={onContinue}
+          onClick={onAnalyze}
           className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800"
         >
           Analyze Content
