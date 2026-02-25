@@ -12,6 +12,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
       - name: Checkout
@@ -23,11 +24,16 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          script_stop: false
+          script_timeout: 600
           script: |
+            set -e
+            echo "🚀 Starting deployment..."
+            
             # Update code
-            cd /opt/agora-studio || git clone https://github.com/VentureHomeSolarLLC/agora-studio.git /opt/agora-studio
-            cd /opt/agora-studio
-            git pull origin main
+            cd /opt/help-venturehome
+            git fetch origin main
+            git reset --hard origin/main
             
             # Setup site
             cd site
@@ -42,11 +48,12 @@ jobs:
             ALLOWED_DOMAIN=${{ secrets.ALLOWED_DOMAIN }}
             EOF
             
-            # Build
+            echo "🔨 Building..."
             npm run build
             
-            # Restart with PM2
+            echo "🔄 Restarting PM2..."
             pm2 restart agora-studio || pm2 start npm --name "agora-studio" -- start
             pm2 save
             
             echo "✅ Deployment complete at $(date)"
+            pm2 status
