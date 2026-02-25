@@ -2,7 +2,7 @@
 
 Venture Home Knowledge Base - Built with Next.js + NextAuth + Tailwind CSS
 
-![Deploy Status](https://github.com/VentureHomeSolarLLC/agora-studio/actions/workflows/deploy.yml/badge.svg)
+![Deploy Status](https://github.com/VentureHomeSolarLLC/agora-studio/actions/workflows/build.yml/badge.svg)
 
 **Live Site:** https://help.venturehome.com
 
@@ -12,8 +12,10 @@ Venture Home Knowledge Base - Built with Next.js + NextAuth + Tailwind CSS
 - 📚 58+ Concepts (knowledge articles)
 - ⚡ 6 Engrams (AI skills)
 - 🔍 Full-text search
-- 🎨 Venture Home brand colors & Bagoss font
+- 🎨 Venture Home brand colors & **Bagoss font**
 - 📱 Responsive design
+- ✏️ Visual Engram Creator (team only)
+- 🏗️ Visual Page Builder (team only)
 
 ## Auto-Deployment
 
@@ -28,30 +30,6 @@ npm run dev
 
 Open http://localhost:3000
 
-## Production Setup
-
-1. Copy `.env.example` to `.env.local`
-2. Set up Google OAuth credentials
-3. Generate NEXTAUTH_SECRET
-4. Configure environment variables
-
-### Environment Variables
-
-```bash
-GOOGLE_CLIENT_ID=xxx
-GOOGLE_CLIENT_SECRET=xxx
-NEXTAUTH_SECRET=$(openssl rand -base64 32)
-NEXTAUTH_URL=https://your-domain.com
-ALLOWED_DOMAIN=venturehome.com
-```
-
-### Build
-
-```bash
-npm run build
-npm start
-```
-
 ## Brand Colors
 
 - Charcoal: #231F20
@@ -60,18 +38,6 @@ npm start
 - Sage: #B1C3BD
 - Off-white: #F3F3EA
 
-## File Structure
+## Font
 
-```
-site/
-├── src/
-│   ├── app/           # Next.js App Router
-│   ├── components/    # React components
-│   └── lib/           # Utilities & auth
-├── public/            # Static assets
-└── next.config.ts
-```
-
----
-
-*Last auto-deployed: $(date)*
+Uses **Bagoss** (Venture Home brand font) loaded from venturehome.com CDN.
