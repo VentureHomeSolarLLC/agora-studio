@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Search, BookOpen, LogOut, LogIn, Lock, Phone, PlusCircle } from "lucide-react";
+import { Search, BookOpen, LogOut, LogIn, Lock, Phone, PlusCircle, Layout } from "lucide-react";
 import Image from "next/image";
 
 export function Navigation() {
@@ -67,6 +67,13 @@ export function Navigation() {
                 >
                   <PlusCircle className="w-4 h-4" />
                   Create
+                </Link>
+                <Link
+                  href="/admin/builder"
+                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors"
+                >
+                  <Layout className="w-4 h-4" />
+                  Builder
                 </Link>
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-[#7AEFB1]" />
