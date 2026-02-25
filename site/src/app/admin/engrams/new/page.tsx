@@ -10,13 +10,15 @@ import { AIAnalysisReview } from '@/components/engram-builder/AIAnalysisReview';
 import { MetadataForm } from '@/components/engram-builder/MetadataForm';
 import { ReviewAndPublish } from '@/components/engram-builder/ReviewAndPublish';
 
-const STEPS = ['Type', 'Info', 'Content', 'AI Review', 'Metadata', 'Publish'];
+const STEPS = ['Type', 'Info', 'Content', 'AI Analysis', 'Metadata', 'Publish'];
 
 export default function NewEngramPage() {
   const [step, setStep] = useState(1);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<EngramFormData>({
     contentType: 'customer',
@@ -35,7 +37,7 @@ export default function NewEngramPage() {
     concepts: [],
     lessons: [],
     rawContent: '',
-    aiExtracted: null,
+    aiAnalysis: null,
   });
 
   const updateFormData = (updates: Partial<EngramFormData>) => {
@@ -48,32 +50,69 @@ export default function NewEngramPage() {
       contentType: type,
       audience: config.audience as any,
       tags: [...config.defaultTags],
+      aiAnalysis: null,
     });
   };
 
   const handleAIAnalysis = async () => {
-    // TODO: Call AI analysis API
-    // For now, simulate with basic extraction
-    const extracted = {
-      title: formData.title,
-      steps: formData.rawContent?.split('\n\n').map((p, i) => ({
-        title: `Step ${i + 1}`,
-        content: p,
-        type: 'text' as const,
-      })) || [],
-      tags: [...(formData.tags || [])],
-      category: formData.category,
-    };
-    
-    updateFormData({
-      aiExtracted: extracted,
-      skill: {
-        ...formData.skill,
-        steps: extracted.steps,
-      },
-    });
-    
-    setStep(5);
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: formData.rawContent,
+          contentType: formData.contentType,
+          title: formData.title,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Analysis failed');
+      }
+
+      const analysis = data.analysis;
+      
+      if (formData.contentType === 'agent' && analysis.steps) {
+        updateFormData({
+          aiAnalysis: analysis,
+          skill: {
+            ...formData.skill,
+            steps: analysis.steps,
+            prerequisites: analysis.prerequisites || [],
+          },
+          concepts: analysis.concepts || [],
+          lessons: analysis.lessons || [],
+          tags: [...new Set([...formData.tags, ...(analysis.suggestedTags || [])])],
+        });
+      } else if (formData.contentType === 'customer') {
+        updateFormData({
+          aiAnalysis: analysis,
+          concepts: analysis.concepts || [],
+          tags: [...new Set([...formData.tags, ...(analysis.suggestedTags || [])])],
+        });
+      } else if (formData.contentType === 'internal') {
+        updateFormData({
+          aiAnalysis: analysis,
+          concepts: analysis.sections?.map((s: any) => ({
+            title: s.title,
+            content: s.content,
+          })) || [],
+          lessons: analysis.lessons || [],
+          tags: [...new Set([...formData.tags, ...(analysis.suggestedTags || [])])],
+        });
+      }
+
+      setStep(5);
+    } catch (error: any) {
+      setAnalysisError(error.message);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handlePublish = async () => {
@@ -113,6 +152,7 @@ export default function NewEngramPage() {
           <p><strong>Type:</strong> {CONTENT_TYPE_CONFIG[formData.contentType].label}</p>
           <p><strong>ID:</strong> {submitResult.engram_id}</p>
           <p><strong>Files:</strong> {submitResult.files_created?.length}</p>
+          <p><strong>Location:</strong> {submitResult.output_path}</p>
           <p><strong>Commit:</strong> <a href={submitResult.commit_url} target="_blank" className="text-blue-600 hover:underline">View on GitHub</a></p>
         </div>
         <div className="flex gap-4 justify-center">
@@ -129,6 +169,7 @@ export default function NewEngramPage() {
       <StepIndicator steps={STEPS} current={step} />
       
       {submitError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6">{submitError}</div>}
+      {analysisError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6">Analysis failed: {analysisError}</div>}
       
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         {step === 1 && (
@@ -159,6 +200,7 @@ export default function NewEngramPage() {
             data={formData}
             onChange={updateFormData}
             onContinue={handleAIAnalysis}
+            isAnalyzing={isAnalyzing}
           />
         )}
         
@@ -166,6 +208,7 @@ export default function NewEngramPage() {
           <MetadataForm
             data={formData}
             onChange={updateFormData}
+            analysis={formData.aiAnalysis}
           />
         )}
         
@@ -188,13 +231,23 @@ export default function NewEngramPage() {
           Previous
         </button>
         
-        {step < 6 && step !== 4 && (
+        {step === 3 && (
+          <button
+            onClick={() => setStep(4)}
+            disabled={!formData.rawContent || !formData.title}
+            className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 disabled:opacity-50"
+          >
+            Analyze with AI
+          </button>
+        )}
+        
+        {step !== 3 && step !== 4 && step !== 6 && (
           <button
             onClick={() => setStep(step + 1)}
             disabled={step === 1 && !formData.contentType}
             className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 disabled:opacity-50"
           >
-            {step === 3 ? 'Analyze with AI' : 'Next'}
+            Next
           </button>
         )}
       </div>
