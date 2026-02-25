@@ -3,58 +3,57 @@ name: Build and Deploy
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+    paths:
+      - 'site/**'
+      - 'concepts/**'
+      - 'engrams/**'
+  workflow_dispatch:
 
 jobs:
-  validate:
+  deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
       
-      - name: Validate YAML frontmatter
-        run: |
-          # TODO: Add YAML validation script
-          echo "Validating YAML frontmatter..."
-      
-      - name: Check file naming
-        run: |
-          # TODO: Add naming convention checks
-          echo "Checking file naming conventions..."
-
-  build-customer-site:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Deploy to GCP VM
+        uses: appleboy/ssh-action@v1.0.0
         with:
-          node-version: '20'
-      
-      - name: Install dependencies
-        run: cd scripts && npm install
-      
-      - name: Build customer site
-        run: node scripts/build-customer-site.js
-      
-      - name: Deploy to GCP
-        run: |
-          # TODO: Add GCP deployment
-          echo "Deploying to help.venturehome.com..."
-
-  sync-to-forge:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Sync Engrams to Forge
-        run: |
-          # TODO: Add Forge sync script
-          echo "Syncing Engrams to Forge skills library..."
-        env:
-          FORGE_API_KEY: ${{ secrets.FORGE_API_KEY }}
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script_stop: false
+          script_timeout: 600
+          script: |
+            set -e
+            echo "🚀 Starting deployment..."
+            
+            # Update code
+            cd /opt/help-venturehome
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Setup site
+            cd site
+            npm ci
+            
+            # Create env file from secrets
+            cat > .env.local << 'EOF'
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+            ALLOWED_DOMAIN=${{ secrets.ALLOWED_DOMAIN }}
+            EOF
+            
+            echo "🔨 Building..."
+            npm run build
+            
+            echo "🔄 Restarting PM2..."
+            pm2 restart agora-studio || pm2 start npm --name "agora-studio" -- start
+            pm2 save
+            
+            echo "✅ Deployment complete at $(date)"
+            pm2 status
