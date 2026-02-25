@@ -25,7 +25,7 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script_stop: false
-          script_timeout: 600
+          command_timeout: 600
           script: |
             set -e
             echo "🚀 Deploying to PRODUCTION..."
