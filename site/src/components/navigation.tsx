@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Search, BookOpen, LogOut, LogIn, Lock, Phone } from "lucide-react";
+import { Search, BookOpen, LogOut, LogIn, Lock, Phone, PlusCircle } from "lucide-react";
 import Image from "next/image";
 
 export function Navigation() {
@@ -61,6 +61,13 @@ export function Navigation() {
               <div className="w-8 h-8 bg-[#B1C3BD] rounded-full animate-pulse" />
             ) : session ? (
               <>
+                <Link
+                  href="/admin/create"
+                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Create
+                </Link>
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-[#7AEFB1]" />
                   <span className="text-sm text-[#B1C3BD] hidden sm:inline">
