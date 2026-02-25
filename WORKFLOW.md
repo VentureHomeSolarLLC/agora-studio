@@ -1,61 +1,102 @@
-# Agora Studio - Development Workflow
+# Development Workflow with PRs
 
-## Branching Strategy
+## Branch Structure
 
-### Main Branches
-- **`main`** - Production code (protected)
-- **`develop`** - Integration branch for features
-- **`feature/*`** - Individual feature branches
+```
+main (production) ←── PR ←── develop ←── PR ←── feature/*
+     ↑                                               
+     └──────── hotfix/* (emergency fixes) ───────────┘
+```
 
-### Workflow
+## Branches
 
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feature/visual-page-builder
-   ```
+| Branch | Purpose | Deploys To |
+|--------|---------|------------|
+| `main` | Production code | https://help.venturehome.com |
+| `develop` | Integration branch | https://staging.help.venturehome.com |
+| `feature/*` | New features | - |
+| `hotfix/*` | Emergency fixes | - |
 
-2. **Make changes and commit**
-   ```bash
-   git add .
-   git commit -m "feat: Add visual page builder"
-   ```
+## Workflow
 
-3. **Push branch**
-   ```bash
-   git push origin feature/visual-page-builder
-   ```
+### 1. Start New Feature
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/visual-page-builder
+git push origin feature/visual-page-builder
+```
 
-4. **Create Pull Request** on GitHub
-   - Go to: https://github.com/VentureHomeSolarLLC/agora-studio/pulls
-   - Click "New Pull Request"
-   - Base: `main`, Compare: `feature/visual-page-builder`
-   - Add description of changes
-   - Request review (if desired)
-   - Click "Create Pull Request"
+### 2. Create Pull Request
+1. Go to: https://github.com/VentureHomeSolarLLC/agora-studio/pulls
+2. Click "New Pull Request"
+3. **base:** `develop`, **compare:** `feature/visual-page-builder`
+4. Fill in PR description:
+   - What changed
+   - Why
+   - Testing notes
+5. Request review
+6. Merge when approved
 
-5. **Merge when ready**
-   - Auto-deploys to production after merge
+### 3. Deploy to Staging
+Merging to `develop` auto-deploys to staging.
 
-## Protection Rules (Recommended)
+### 4. Deploy to Production
+Create PR from `develop` → `main`
+- Review and merge
+- Auto-deploys to production
 
-Set up branch protection for `main`:
-1. Go to Settings → Branches
-2. Add rule for `main`
-3. Enable:
-   - Require pull request reviews
-   - Require status checks
-   - Restrict pushes
+## Hotfix Process (Emergency)
 
-## Current Status
+For critical bugs in production:
+```bash
+git checkout main
+git checkout -b hotfix/critical-bug
+git push origin hotfix/critical-bug
+```
 
-We've been pushing directly to `main` for speed during MVP development.
-For Phase 2 and beyond, let's use PRs for:
-- Better code review
-- Version history
-- Rollback capability
-- Team collaboration
+Create PR directly to `main` (bypassing develop).
 
-## Quick Fix for Past Commits
+## Setting Up Branch Protection
 
-All commits are already in Git history - we have full version history!
-Just need to switch to PR workflow going forward.
+### Step 1: Protect `main` Branch
+1. Go to: https://github.com/VentureHomeSolarLLC/agora-studio/settings/branches
+2. Click "Add rule"
+3. Branch name pattern: `main`
+4. Enable:
+   - ✅ Require a pull request before merging
+   - ✅ Require approvals (1)
+   - ✅ Dismiss stale PR approvals when new commits are pushed
+   - ✅ Require status checks to pass before merging
+   - ✅ Require branches to be up to date before merging
+   - ✅ Include administrators
+   - ✅ Restrict pushes that create files larger than 100MB
+
+### Step 2: Protect `develop` Branch
+Same as above, but for `develop` branch.
+
+## Commit Message Format
+
+Follow conventional commits:
+```
+feat: Add new feature
+fix: Fix a bug
+docs: Documentation changes
+style: Code style changes
+refactor: Code refactoring
+test: Adding tests
+chore: Maintenance tasks
+```
+
+Example:
+```bash
+git commit -m "feat: Add drag-and-drop page builder"
+```
+
+## Current Setup
+
+✅ `develop` branch created
+✅ Staging deployment workflow
+✅ Production deployment from `main` only
+
+**Next: Set up branch protection in GitHub UI**
