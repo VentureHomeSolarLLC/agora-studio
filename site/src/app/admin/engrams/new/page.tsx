@@ -76,6 +76,7 @@ export default function NewEngramPage() {
       }
 
       const analysis = data.analysis;
+      const currentTags = formData.tags || [];
       
       if (formData.contentType === 'agent' && analysis.steps) {
         updateFormData({
@@ -87,13 +88,13 @@ export default function NewEngramPage() {
           },
           concepts: analysis.concepts || [],
           lessons: analysis.lessons || [],
-          tags: [...new Set([...formData.tags, ...(analysis.suggestedTags || [])])],
+          tags: [...new Set([...currentTags, ...(analysis.suggestedTags || [])])],
         });
       } else if (formData.contentType === 'customer') {
         updateFormData({
           aiAnalysis: analysis,
           concepts: analysis.concepts || [],
-          tags: [...new Set([...formData.tags, ...(analysis.suggestedTags || [])])],
+          tags: [...new Set([...currentTags, ...(analysis.suggestedTags || [])])],
         });
       } else if (formData.contentType === 'internal') {
         updateFormData({
@@ -103,7 +104,7 @@ export default function NewEngramPage() {
             content: s.content,
           })) || [],
           lessons: analysis.lessons || [],
-          tags: [...new Set([...formData.tags, ...(analysis.suggestedTags || [])])],
+          tags: [...new Set([...currentTags, ...(analysis.suggestedTags || [])])],
         });
       }
 
@@ -208,7 +209,6 @@ export default function NewEngramPage() {
           <MetadataForm
             data={formData}
             onChange={updateFormData}
-            analysis={formData.aiAnalysis}
           />
         )}
         
