@@ -251,6 +251,10 @@ Contact Enfin at least **30 days before closing** to begin the process.
 
 ---
 
+## Related Articles
+
+- [[selling-refinancing-solar|General Guidance: Selling or Refinancing with Solar]] — Universal rules that apply regardless of your provider
+
 ## Need More Help?
 
 Contact Venture Home Customer Success:
