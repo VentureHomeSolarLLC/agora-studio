@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -27,7 +27,8 @@ interface Concept {
   excerpt?: string;
 }
 
-export default function PageBuilder() {
+// Wrapper component for search params
+function BuilderContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -355,5 +356,18 @@ export default function PageBuilder() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense wrapper
+export default function PageBuilder() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 bg-[#F7FF96] rounded-full animate-pulse" />
+      </div>
+    }>
+      <BuilderContent />
+    </Suspense>
   );
 }
