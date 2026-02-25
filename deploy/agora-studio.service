@@ -1,0 +1,16 @@
+[Unit]
+Description=Agora Studio Knowledge Base
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/agora-studio/site
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target
