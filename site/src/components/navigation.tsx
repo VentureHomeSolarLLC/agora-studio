@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Search, BookOpen, LogOut, LogIn, Lock, Phone, PlusCircle, Layout } from "lucide-react";
+import { LogOut, LogIn, Lock, Phone } from "lucide-react";
 import Image from "next/image";
 
 export function Navigation() {
@@ -30,72 +30,46 @@ export function Navigation() {
             />
           </Link>
 
-          {/* Navigation Links - Always visible */}
-          <div className="hidden md:flex items-center gap-8">
-            <Link
-              href="/browse"
-              className="flex items-center gap-2 hover:text-[#7AEFB1] transition-colors"
-            >
-              <BookOpen className="w-4 h-4" />
-              Articles
-            </Link>
-            <Link
-              href="/search"
-              className="flex items-center gap-2 hover:text-[#7AEFB1] transition-colors"
-            >
-              <Search className="w-4 h-4" />
-              Search
-            </Link>
+          {/* Right side: Phone + Auth */}
+          <div className="flex items-center gap-6">
             <a
               href="tel:800-203-4158"
-              className="flex items-center gap-2 bg-[#F7FF96] text-[#231F20] px-4 py-2 rounded-lg font-medium hover:bg-[#7AEFB1] transition-colors"
+              className="text-[#F3F3EA] hover:text-[#F7FF96] transition-colors text-sm"
             >
-              <Phone className="w-4 h-4" />
               800-203-4158
             </a>
-          </div>
-
-          {/* Auth */}
-          <div className="flex items-center gap-4">
+            
             {status === "loading" ? (
               <div className="w-8 h-8 bg-[#B1C3BD] rounded-full animate-pulse" />
             ) : session ? (
               <>
                 <Link
                   href="/admin/create"
-                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors"
+                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
                 >
-                  <PlusCircle className="w-4 h-4" />
                   Create
                 </Link>
                 <Link
                   href="/admin/builder"
-                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors"
+                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
                 >
-                  <Layout className="w-4 h-4" />
                   Builder
                 </Link>
-                <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-[#7AEFB1]" />
-                  <span className="text-sm text-[#B1C3BD] hidden sm:inline">
-                    {session.user?.email}
-                  </span>
-                </div>
                 <button
                   onClick={() => signOut()}
-                  className="flex items-center gap-2 bg-[#F7FF96] text-[#231F20] px-4 py-2 rounded-lg font-medium hover:bg-[#7AEFB1] transition-colors"
+                  className="flex items-center gap-2 text-[#F3F3EA] hover:text-[#F7FF96] transition-colors text-sm"
                 >
                   <LogOut className="w-4 h-4" />
-                  Sign Out
+                  <span className="hidden sm:inline">Sign Out</span>
                 </button>
               </>
             ) : (
               <button
                 onClick={() => signIn("google")}
-                className="flex items-center gap-2 border-2 border-[#F7FF96] text-[#F7FF96] px-4 py-2 rounded-lg font-medium hover:bg-[#F7FF96] hover:text-[#231F20] transition-colors"
+                className="flex items-center gap-2 text-[#F3F3EA] hover:text-[#F7FF96] transition-colors text-sm"
               >
                 <Lock className="w-4 h-4" />
-                Team Login
+                <span className="hidden sm:inline">Team Login</span>
               </button>
             )}
           </div>

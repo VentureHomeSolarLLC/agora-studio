@@ -1,6 +1,6 @@
 import { getPublicConcepts, getConceptsByCategory } from "@/lib/content";
 import Link from "next/link";
-import { Search, BookOpen, Zap, MessageCircle, DollarSign, Battery, Wrench, HelpCircle, Lock } from "lucide-react";
+import { Search, BookOpen, Zap, MessageCircle, DollarSign, Battery, Wrench, Lock } from "lucide-react";
 
 export default async function Home() {
   const publicConcepts = getPublicConcepts();
@@ -11,33 +11,42 @@ export default async function Home() {
   const batteryConcepts = getConceptsByCategory("batteries").slice(0, 4);
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <div className="bg-[#231F20] text-[#F3F3EA] py-16 md:py-24">
+    <div className="min-h-screen bg-[#F3F3EA]">
+      {/* Hero Section - Clean, no logo */}
+      <div className="py-12 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="w-16 h-16 bg-[#F7FF96] rounded-xl flex items-center justify-center mx-auto mb-6">
-              <Zap className="w-8 h-8 text-[#231F20]" />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-[#231F20] mb-4">
               How can we help?
             </h1>
-            <p className="text-xl text-[#B1C3BD] mb-8">
+            <p className="text-lg text-[#231F20]/70 mb-8">
               Find answers about your solar system, billing, incentives, and more.
             </p>
-            <Link
-              href="/search"
-              className="inline-flex items-center gap-3 bg-[#F7FF96] text-[#231F20] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#7AEFB1] transition-colors"
-            >
-              <Search className="w-5 h-5" />
-              Search Help Articles
-            </Link>
+            
+            {/* Search Bar */}
+            <form action="/browse" className="max-w-2xl mx-auto mb-8">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#231F20]/40" />
+                <input
+                  type="text"
+                  name="q"
+                  placeholder="Search help articles..."
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-[#B1C3BD]/30 rounded-xl text-lg focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                />
+                <button
+                  type="submit"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#231F20] text-[#F3F3EA] px-4 py-2 rounded-lg font-medium hover:bg-[#231F20]/90 transition-colors"
+                >
+                  Search
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
 
       {/* Categories */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <h2 className="text-2xl font-bold text-[#231F20] mb-8 text-center">
           Browse by Topic
         </h2>
@@ -69,7 +78,7 @@ export default async function Home() {
             icon={<Wrench className="w-6 h-6" />}
             title="Maintenance & Care"
             description="Panel cleaning, warranties, and upkeep"
-            color="bg-[#F3F3EA]"
+            color="bg-[#E8E8DC]"
           />
         </div>
 
