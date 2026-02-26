@@ -174,7 +174,7 @@ ${yaml.dump(frontmatter)}---
 ${data.description || ''}
 
 ## SKILL
-File: \\`SKILL.md\\`
+File: `SKILL.md`
 Core procedure for this engram.
 
 ## CONCEPTS
