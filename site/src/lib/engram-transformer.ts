@@ -8,11 +8,9 @@ export function transformToEngram(formData: EngramFormData) {
   
   const files: Record<string, string> = {};
 
-  // Customer content
   if (formData.contentType === 'customer') {
     files['_index.md'] = generateCustomerPageMd(formData, engramId);
     
-    // Auto-extract agent training materials if they exist
     if (analysis?.agentTrainingPotential?.suggestedConcepts?.length > 0) {
       analysis.agentTrainingPotential.suggestedConcepts.forEach((concept: any, i: number) => {
         files[`concepts/auto-extracted-${i + 1}.md`] = generateAutoConceptMd(concept, engramId);
@@ -23,13 +21,9 @@ export function transformToEngram(formData: EngramFormData) {
         files[`lessons/auto-extracted-${i + 1}.md`] = generateAutoLessonMd(lesson, engramId);
       });
     }
-  } 
-  // Internal content
-  else if (formData.contentType === 'internal') {
+  } else if (formData.contentType === 'internal') {
     files['_index.md'] = generateConceptMd(formData, engramId);
-  } 
-  // Agent instructions
-  else {
+  } else {
     files['_index.md'] = generateIndexMd(formData, engramId);
     files['SKILL.md'] = generateSkillMd(formData, engramId);
     
@@ -67,21 +61,13 @@ function generateAutoConceptMd(concept: any, parentId: string): string {
     tags: ['auto-extracted', 'customer-content-derived'],
   };
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${concept.title}
-
-${concept.content}
-
----
-*Auto-extracted from customer-facing content. Review for accuracy before using in agent training.*
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + concept.title + '\n\n' + concept.content + '\n\n---\n*Auto-extracted from customer-facing content. Review for accuracy before using in agent training.*';
 }
 
 function generateAutoLessonMd(lesson: any, parentId: string): string {
   const frontmatter = {
     engram_id: parentId,
-    lesson_id: `${new Date().toISOString().split('T')[0]}-${slugify(lesson.title)}`,
+    lesson_id: new Date().toISOString().split('T')[0] + '-' + slugify(lesson.title),
     date: new Date().toISOString().split('T')[0],
     title: lesson.title,
     type: 'lesson',
@@ -91,19 +77,7 @@ function generateAutoLessonMd(lesson: any, parentId: string): string {
     author: 'ai-extraction@venturehome.com',
   };
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${lesson.title}
-
-## Scenario
-${lesson.scenario}
-
-## Solution
-${lesson.solution}
-
----
-*Auto-extracted from customer-facing content. Review before using in agent training.*
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + lesson.title + '\n\n## Scenario\n' + lesson.scenario + '\n\n## Solution\n' + lesson.solution + '\n\n---\n*Auto-extracted from customer-facing content. Review before using in agent training.*';
 }
 
 function generateCustomerPageMd(data: EngramFormData, id: string): string {
@@ -120,14 +94,7 @@ function generateCustomerPageMd(data: EngramFormData, id: string): string {
     has_agent_training_derivatives: data.aiAnalysis?.agentTrainingPotential?.hasExtractableContent || false,
   };
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${data.title}
-
-${data.description || ''}
-
-${data.rawContent || ''}
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + (data.description || '') + '\n\n' + (data.rawContent || '');
 }
 
 function generateConceptMd(data: EngramFormData, id: string): string {
@@ -143,14 +110,7 @@ function generateConceptMd(data: EngramFormData, id: string): string {
     updated: new Date().toISOString(),
   };
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${data.title}
-
-${data.description || ''}
-
-${data.rawContent || ''}
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + (data.description || '') + '\n\n' + (data.rawContent || '');
 }
 
 function generateIndexMd(data: EngramFormData, engramId: string): string {
@@ -167,22 +127,10 @@ function generateIndexMd(data: EngramFormData, engramId: string): string {
     version: '1.0',
   };
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${data.title}
+  const conceptsList = data.concepts?.map(c => '- [' + slugify(c.title) + '](concepts/' + slugify(c.title) + '.md) — ' + c.title).join('\n') || '- No concepts yet';
+  const lessonsList = data.lessons?.map(l => '- [' + (l.date || '2024-01-01') + '-' + slugify(l.title) + '](lessons/' + (l.date || '2024-01-01') + '-' + slugify(l.title) + '.md) — ' + l.title).join('\n') || '- No lessons yet';
 
-${data.description || ''}
-
-## SKILL
-File: `SKILL.md`
-Core procedure for this engram.
-
-## CONCEPTS
-${data.concepts?.map(c => `- [${slugify(c.title)}](concepts/${slugify(c.title)}.md) — ${c.title}`).join('\\n') || '- No concepts yet'}
-
-## LESSONS
-${data.lessons?.map(l => `- [${l.date || '2024-01-01'}-${slugify(l.title)}](lessons/${l.date || '2024-01-01'}-${slugify(l.title)}.md) — ${l.title}`).join('\\n') || '- No lessons yet'}
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + (data.description || '') + '\n\n## SKILL\nFile: SKILL.md\nCore procedure for this engram.\n\n## CONCEPTS\n' + conceptsList + '\n\n## LESSONS\n' + lessonsList;
 }
 
 function generateSkillMd(data: EngramFormData, engramId: string): string {
@@ -195,19 +143,14 @@ function generateSkillMd(data: EngramFormData, engramId: string): string {
   };
 
   const steps = data.skill.steps?.map((step, index) => {
-    let text = `## Step ${index + 1}: ${step.title}\\n\\n${step.content}`;
+    let text = '## Step ' + (index + 1) + ': ' + step.title + '\n\n' + step.content;
     if (step.type === 'checkbox') {
-      text += '\\n\\n- [ ] Complete this step';
+      text += '\n\n- [ ] Complete this step';
     }
     return text;
-  }).join('\\n\\n') || '';
+  }).join('\n\n') || '';
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${data.title}
-
-${steps}
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + steps;
 }
 
 function generateConceptFileMd(concept: any, engramId: string): string {
@@ -219,29 +162,19 @@ function generateConceptFileMd(concept: any, engramId: string): string {
     tags: concept.tags || [],
   };
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${concept.title}
-
-${concept.content}
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + concept.title + '\n\n' + concept.content;
 }
 
 function generateLessonMd(lesson: any, engramId: string): string {
   const frontmatter = {
     engram_id: engramId,
-    lesson_id: `${lesson.date || '2024-01-01'}-${slugify(lesson.title)}`,
+    lesson_id: (lesson.date || '2024-01-01') + '-' + slugify(lesson.title),
     date: lesson.date || '2024-01-01',
     author: lesson.author || 'rex@venturehome.com',
     severity: lesson.severity || 'medium',
   };
 
-  return `---
-${yaml.dump(frontmatter)}---
-# ${lesson.title}
-
-${lesson.content}
-`;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + lesson.title + '\n\n' + lesson.content;
 }
 
 function slugify(text: string): string {
