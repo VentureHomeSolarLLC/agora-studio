@@ -312,10 +312,17 @@ function getAllowedTypes(contentType: string): Set<IndexedDoc['type']> {
   return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
 }
 
-function findDuplicatesForText(title: string, content: string, allowedTypes: Set<IndexedDoc['type']>) {
+function findDuplicatesForText(
+  title: string,
+  content: string,
+  allowedTypes: Set<IndexedDoc['type']>,
+  options?: { matchThreshold?: number; similarThreshold?: number }
+) {
   const docs = loadDocuments();
   const weighted = `${title}\n${title}\n${content}`;
   const inputVector = buildVector(tokenize(weighted));
+  const matchThreshold = options?.matchThreshold ?? 0.12;
+  const similarThreshold = options?.similarThreshold ?? 0.25;
 
   const scored = docs
     .filter((doc) => allowedTypes.has(doc.type))
@@ -326,19 +333,20 @@ function findDuplicatesForText(title: string, content: string, allowedTypes: Set
       viewUrl: doc.viewUrl,
       score: cosineSimilarity(inputVector, doc),
     }))
-    .filter((match) => match.score > 0.12)
+    .filter((match) => match.score > matchThreshold)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
   const topScore = scored[0]?.score || 0;
-  const similar = topScore >= 0.25;
+  const similar = topScore >= similarThreshold;
 
   return { similar, topScore, matches: scored };
 }
 
 async function checkForDuplicates(title: string, content: string, contentType: string) {
   const allowed = getAllowedTypes(contentType);
-  return findDuplicatesForText(title, content, allowed);
+  const similarThreshold = contentType === 'customer' ? 0.5 : 0.25;
+  return findDuplicatesForText(title, content, allowed, { similarThreshold });
 }
 
 async function analyzeCustomerContent(content: string, title: string) {
