@@ -1,4 +1,4 @@
-import { EngramFormData, ContentType, CONTENT_TYPE_CONFIG } from '@/types/engram';
+import { EngramFormData, ContentType, CONTENT_TYPE_CONFIG, AgentProfile } from '@/types/engram';
 
 interface BasicInfoFormProps {
   data: EngramFormData;
@@ -8,6 +8,14 @@ interface BasicInfoFormProps {
 
 export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProps) {
   const config = CONTENT_TYPE_CONFIG[contentType];
+  const agentProfile = data.agentProfile;
+
+  const updateAgentProfile = (updates: Partial<AgentProfile>) => {
+    onChange({ agentProfile: { ...agentProfile, ...updates } });
+  };
+
+  const asList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
+  const asText = (values?: string[]) => values?.join(', ') || '';
   
   return (
     <div className="space-y-6">
@@ -39,6 +47,123 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
           className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
         />
       </div>
+
+      {contentType === 'agent' && (
+        <div className="space-y-6 border-t pt-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Skill Profile</h3>
+            <p className="text-sm text-gray-500">
+              Define the outcome, triggers, and constraints so the agent knows exactly when and how to run this skill.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Skill Type</label>
+              <select
+                value={agentProfile?.skillType || 'procedural'}
+                onChange={(e) => updateAgentProfile({ skillType: e.target.value as AgentProfile['skillType'] })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+              >
+                <option value="consultation">Consultation</option>
+                <option value="diagnostic">Diagnostic</option>
+                <option value="procedural">Procedural</option>
+                <option value="creative">Creative</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Risk Level</label>
+              <select
+                value={agentProfile?.riskLevel || 'medium'}
+                onChange={(e) => updateAgentProfile({ riskLevel: e.target.value as AgentProfile['riskLevel'] })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Outcome (Definition of Done)</label>
+            <textarea
+              value={agentProfile?.outcome || ''}
+              onChange={(e) => updateAgentProfile({ outcome: e.target.value })}
+              placeholder="Describe what success looks like..."
+              rows={3}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Triggers</label>
+            <input
+              type="text"
+              value={asText(agentProfile?.triggers)}
+              onChange={(e) => updateAgentProfile({ triggers: asList(e.target.value) })}
+              placeholder="e.g., customer wants to add EV charger, breaker panel full"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+            />
+            <p className="text-xs text-gray-400 mt-1">Comma-separated phrases that should activate the skill.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Required Inputs</label>
+            <input
+              type="text"
+              value={asText(agentProfile?.requiredInputs)}
+              onChange={(e) => updateAgentProfile({ requiredInputs: asList(e.target.value) })}
+              placeholder="e.g., site survey, utility account, panel photos"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Constraints / No-Go Rules</label>
+            <textarea
+              value={asText(agentProfile?.constraints)}
+              onChange={(e) => updateAgentProfile({ constraints: asList(e.target.value) })}
+              placeholder="e.g., do not schedule same-day installs, never promise incentives"
+              rows={2}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Allowed Systems</label>
+            <input
+              type="text"
+              value={asText(agentProfile?.allowedSystems)}
+              onChange={(e) => updateAgentProfile({ allowedSystems: asList(e.target.value) })}
+              placeholder="e.g., Aurora, Salesforce, Enphase portal"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Escalation Criteria</label>
+            <textarea
+              value={asText(agentProfile?.escalationCriteria)}
+              onChange={(e) => updateAgentProfile({ escalationCriteria: asList(e.target.value) })}
+              placeholder="e.g., customer requests financing exception, safety concerns found"
+              rows={2}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Stop Conditions</label>
+            <textarea
+              value={asText(agentProfile?.stopConditions)}
+              onChange={(e) => updateAgentProfile({ stopConditions: asList(e.target.value) })}
+              placeholder="e.g., missing required docs, unsafe electrical condition"
+              rows={2}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -38,6 +38,17 @@ export default function NewEngramPage() {
     lessons: [],
     rawContent: '',
     aiAnalysis: null,
+    agentProfile: {
+      skillType: 'procedural',
+      riskLevel: 'medium',
+      triggers: [],
+      requiredInputs: [],
+      constraints: [],
+      allowedSystems: [],
+      escalationCriteria: [],
+      stopConditions: [],
+      outcome: '',
+    },
     agentExtraction: null,
     duplicateResolutionConfirmed: false,
     duplicateCheck: null,
@@ -54,6 +65,17 @@ export default function NewEngramPage() {
       audience: config.audience as any,
       tags: [...config.defaultTags],
       aiAnalysis: null,
+      agentProfile: type === 'agent' ? {
+        skillType: 'procedural',
+        riskLevel: 'medium',
+        triggers: [],
+        requiredInputs: [],
+        constraints: [],
+        allowedSystems: [],
+        escalationCriteria: [],
+        stopConditions: [],
+        outcome: '',
+      } : undefined,
       agentExtraction: null,
       duplicateResolutionConfirmed: false,
       duplicateCheck: null,
@@ -90,7 +112,21 @@ export default function NewEngramPage() {
       const currentTags = formData.tags || [];
       const newTags = analysis.suggestedTags?.filter((tag: string) => !currentTags.includes(tag)) || [];
       
-      if (formData.contentType === 'agent' && analysis.steps) {
+      if (formData.contentType === 'agent') {
+        const skill = analysis.skill || {};
+        const nextProfile = {
+          ...formData.agentProfile,
+          skillType: formData.agentProfile?.skillType || skill.type || 'procedural',
+          outcome: formData.agentProfile?.outcome || skill.outcome || '',
+          riskLevel: formData.agentProfile?.riskLevel || skill.riskLevel || 'medium',
+          triggers: formData.agentProfile?.triggers?.length ? formData.agentProfile.triggers : (skill.triggers || []),
+          requiredInputs: formData.agentProfile?.requiredInputs?.length ? formData.agentProfile.requiredInputs : (skill.requiredInputs || []),
+          constraints: formData.agentProfile?.constraints?.length ? formData.agentProfile.constraints : (skill.constraints || []),
+          allowedSystems: formData.agentProfile?.allowedSystems?.length ? formData.agentProfile.allowedSystems : (skill.allowedSystems || []),
+          escalationCriteria: formData.agentProfile?.escalationCriteria?.length ? formData.agentProfile.escalationCriteria : (skill.escalationCriteria || []),
+          stopConditions: formData.agentProfile?.stopConditions?.length ? formData.agentProfile.stopConditions : (skill.stopConditions || []),
+        };
+
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: null,
@@ -98,11 +134,12 @@ export default function NewEngramPage() {
           duplicateCheck: data.duplicateCheck || null,
           skill: {
             ...formData.skill,
-            steps: analysis.steps,
-            prerequisites: analysis.prerequisites || [],
+            steps: skill.steps || formData.skill.steps,
+            prerequisites: skill.prerequisites || formData.skill.prerequisites || [],
           },
-          concepts: analysis.concepts || [],
-          lessons: analysis.lessons || [],
+          agentProfile: nextProfile,
+          concepts: analysis.concepts || formData.concepts || [],
+          lessons: analysis.lessons || formData.lessons || [],
           tags: [...currentTags, ...newTags],
         });
       } else if (formData.contentType === 'customer') {

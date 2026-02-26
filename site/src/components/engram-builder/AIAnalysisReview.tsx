@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { EngramFormData } from '@/types/engram';
+import { SkillBuilder } from '@/components/engram-builder/SkillBuilder';
+import { ConceptsBuilder } from '@/components/engram-builder/ConceptsBuilder';
+import { LessonsBuilder } from '@/components/engram-builder/LessonsBuilder';
 
 interface AIAnalysisReviewProps {
   data: EngramFormData;
@@ -10,6 +13,21 @@ interface AIAnalysisReviewProps {
   onContinue: () => void;
   isAnalyzing: boolean;
 }
+
+type DuplicateMatch = {
+  title: string;
+  type: string;
+  score: number;
+  path: string;
+  viewUrl?: string;
+};
+
+type MissingSection = {
+  sectionTitle: string;
+  content: string;
+  placement?: string;
+  whyImportant?: string;
+};
 
 export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnalyzing }: AIAnalysisReviewProps) {
   const analysis = data.aiAnalysis;
@@ -196,6 +214,157 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   };
   const readability = getReadability();
 
+  const renderDuplicateCheck = () => {
+    if (!duplicateCheck) return null;
+    return (
+      <div className={`rounded-lg p-4 border ${duplicateCheck.similar ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
+        <h3 className={`font-medium mb-2 ${duplicateCheck.similar ? 'text-yellow-900' : 'text-green-900'}`}>
+          {duplicateCheck.similar ? 'Potential duplicates found' : 'No close duplicates detected'}
+        </h3>
+        {duplicateCheck.matches.length === 0 ? (
+          <p className={`text-sm ${duplicateCheck.similar ? 'text-yellow-800' : 'text-green-800'}`}>
+            We didn&apos;t find anything very similar in the library.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {duplicateCheck.matches.map((match, i) => (
+              <div key={`${match.path}-${i}`} className="bg-white border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-medium text-gray-900">{match.title}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {match.type === 'customer-page'
+                      ? 'Customer page'
+                      : match.type === 'concept'
+                      ? 'Concept'
+                      : match.type === 'lesson'
+                      ? 'Lesson'
+                      : match.type === 'skill'
+                      ? 'Skill'
+                      : match.type === 'engram-v2'
+                      ? 'Engram (v2)'
+                      : 'Engram'}{' '}
+                    • {match.path}
+                  </p>
+                  <a
+                    href={resolveViewUrl(match.viewUrl) || repoLinkForPath(match.path)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+                  >
+                    Open in new tab
+                  </a>
+                  {match.viewUrl && resolveViewUrl(match.viewUrl) !== repoLinkForPath(match.path) && (
+                    <a
+                      href={repoLinkForPath(match.path)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+                    >
+                      View source file
+                    </a>
+                  )}
+                </div>
+                <div className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  {Math.round(match.score * 100)}% similar
+                </div>
+              </div>
+            ))}
+            <p className={`text-xs ${duplicateCheck.similar ? 'text-yellow-700' : 'text-green-700'}`}>
+              If this overlaps heavily, consider updating the existing content instead of publishing a new page.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (data.contentType === 'agent') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">AI Skill Draft</h2>
+          <button
+            onClick={handleReanalyze}
+            disabled={isAnalyzing}
+            className="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50"
+          >
+            Re-analyze
+          </button>
+        </div>
+
+        {analysis?.warnings?.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <h3 className="font-medium text-amber-900 mb-2">Warnings</h3>
+            <ul className="text-sm text-amber-800 space-y-1">
+              {analysis.warnings.map((warning: string, i: number) => (
+                <li key={i}>• {warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {renderDuplicateCheck()}
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="font-medium text-blue-900 mb-2">Skill Profile</h3>
+          <p className="text-sm text-blue-800">
+            Review the outcome, triggers, and guardrails in Step 2. The draft below focuses on execution steps and knowledge support.
+          </p>
+        </div>
+
+        <SkillBuilder
+          data={data.skill}
+          onChange={(next) => onChange({ skill: next })}
+        />
+
+        <ConceptsBuilder
+          data={data.concepts || []}
+          onChange={(next) => onChange({ concepts: next })}
+        />
+
+        <LessonsBuilder
+          data={data.lessons || []}
+          onChange={(next) => onChange({ lessons: next })}
+        />
+
+        {analysis?.suggestedTags?.length > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h3 className="font-medium text-green-900 mb-2">Suggested Tags</h3>
+            <p className="text-sm text-green-700 mb-3">Click to add/remove:</p>
+            <div className="flex flex-wrap gap-2">
+              {analysis.suggestedTags.map((tag: string, i: number) => {
+                const isAdded = data.tags?.includes(tag);
+                return (
+                  <button
+                    key={i}
+                    onClick={() => toggleTag(tag)}
+                    className={`px-3 py-1 rounded-full text-sm transition-all ${isAdded ? 'bg-green-600 text-white' : 'bg-white text-green-800 border border-green-300 hover:bg-green-100'}`}
+                  >
+                    {isAdded ? '✓ ' : '+ '}{tag}
+                  </button>
+                );
+              })}
+            </div>
+            {data.tags && data.tags.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-green-200">
+                <p className="text-sm font-medium text-green-900">Selected ({data.tags.length}): {data.tags.join(', ')}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-4 border-t">
+          <button
+            onClick={onContinue}
+            className="px-6 py-3 rounded-lg font-medium bg-gray-900 text-white hover:bg-gray-800"
+          >
+            Continue to Metadata →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {showAppliedToast && (
@@ -241,66 +410,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {duplicateCheck && (
-        <div className={`rounded-lg p-4 border ${duplicateCheck.similar ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
-          <h3 className={`font-medium mb-2 ${duplicateCheck.similar ? 'text-yellow-900' : 'text-green-900'}`}>
-            {duplicateCheck.similar ? 'Potential duplicates found' : 'No close duplicates detected'}
-          </h3>
-          {duplicateCheck.matches.length === 0 ? (
-            <p className={`text-sm ${duplicateCheck.similar ? 'text-yellow-800' : 'text-green-800'}`}>
-              We didn&apos;t find anything very similar in the library.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {duplicateCheck.matches.map((match, i) => (
-                <div key={`${match.path}-${i}`} className="bg-white border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium text-gray-900">{match.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {match.type === 'customer-page'
-                          ? 'Customer page'
-                          : match.type === 'concept'
-                          ? 'Concept'
-                          : match.type === 'lesson'
-                          ? 'Lesson'
-                          : match.type === 'skill'
-                          ? 'Skill'
-                          : match.type === 'engram-v2'
-                          ? 'Engram (v2)'
-                          : 'Engram'}{' '}
-                        • {match.path}
-                      </p>
-                    <a
-                      href={resolveViewUrl(match.viewUrl) || repoLinkForPath(match.path)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline mt-2 inline-block"
-                    >
-                      Open in new tab
-                    </a>
-                    {match.viewUrl && resolveViewUrl(match.viewUrl) !== repoLinkForPath(match.path) && (
-                      <a
-                        href={repoLinkForPath(match.path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:underline mt-2 inline-block"
-                      >
-                        View source file
-                      </a>
-                    )}
-                  </div>
-                  <div className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                    {Math.round(match.score * 100)}% similar
-                  </div>
-                </div>
-              ))}
-              <p className={`text-xs ${duplicateCheck.similar ? 'text-yellow-700' : 'text-green-700'}`}>
-                If this overlaps heavily, consider updating the existing content instead of publishing a new page.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      {renderDuplicateCheck()}
 
       {data.contentType === 'customer' && extraction && (extraction.concepts.length > 0 || extraction.lessons.length > 0) && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -336,7 +446,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 const isDuplicate = concept.duplicate?.similar;
                 const topMatch = concept.duplicate?.matches?.[0];
                 const mergeOptions =
-                  concept.duplicate?.matches?.filter((match: any) => match.type === 'concept') || [];
+                  concept.duplicate?.matches?.filter((match: DuplicateMatch) => match.type === 'concept') || [];
                 return (
                 <div key={`${concept.title}-${i}`} className="bg-white border border-blue-100 rounded-lg p-3">
                   <div className="flex items-start justify-between gap-4">
@@ -377,13 +487,13 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       <select
                         value={concept.mergeTargetPath || ''}
                         onChange={(e) => {
-                          const selected = mergeOptions.find((m: any) => m.path === e.target.value);
+                          const selected = mergeOptions.find((m) => m.path === e.target.value);
                           setConceptMerge(i, e.target.value, selected?.title || '', selected?.type || '');
                         }}
                         className="w-full text-sm border border-amber-200 rounded px-2 py-2 bg-white"
                       >
                         <option value="">Do not merge</option>
-                        {mergeOptions.map((match: any, idx: number) => (
+                        {mergeOptions.map((match, idx) => (
                           <option key={`${match.path}-${idx}`} value={match.path}>
                             {match.title} ({Math.round(match.score * 100)}%)
                           </option>
@@ -419,7 +529,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 const isDuplicate = lesson.duplicate?.similar;
                 const topMatch = lesson.duplicate?.matches?.[0];
                 const mergeOptions =
-                  lesson.duplicate?.matches?.filter((match: any) => match.type === 'lesson') || [];
+                  lesson.duplicate?.matches?.filter((match: DuplicateMatch) => match.type === 'lesson') || [];
                 return (
                 <div key={`${lesson.title}-${i}`} className="bg-white border border-blue-100 rounded-lg p-3">
                   <div className="flex items-start justify-between gap-4">
@@ -460,13 +570,13 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       <select
                         value={lesson.mergeTargetPath || ''}
                         onChange={(e) => {
-                          const selected = mergeOptions.find((m: any) => m.path === e.target.value);
+                          const selected = mergeOptions.find((m) => m.path === e.target.value);
                           setLessonMerge(i, e.target.value, selected?.title || '', selected?.type || '');
                         }}
                         className="w-full text-sm border border-amber-200 rounded px-2 py-2 bg-white"
                       >
                         <option value="">Do not merge</option>
-                        {mergeOptions.map((match: any, idx: number) => (
+                        {mergeOptions.map((match, idx) => (
                           <option key={`${match.path}-${idx}`} value={match.path}>
                             {match.title} ({Math.round(match.score * 100)}%)
                           </option>
@@ -559,7 +669,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <h3 className="font-medium text-orange-900 mb-3">💡 Suggested Sections to Add</h3>
           <div className="space-y-3">
-            {analysis.missingContentSections.map((section: any, i: number) => {
+            {analysis.missingContentSections.map((section: MissingSection, i: number) => {
               const isAdded = addedSections.includes(section.sectionTitle);
               const isExpanded = expandedSections.includes(i);
               

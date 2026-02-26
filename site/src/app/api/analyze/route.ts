@@ -407,7 +407,33 @@ async function analyzeAgentInstructions(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: 'Convert to AI instructions. Return JSON with steps, concepts, lessons, searchability, suggestedEdit. Be aggressive about restructuring.'
+        content: `You are creating a high-quality AI agent skill (Engram v2). Convert rough notes into a structured skill that agents can execute safely.
+
+Return JSON with:
+- skill: {
+    name,
+    type: consultation | diagnostic | procedural | creative,
+    outcome,
+    riskLevel: low | medium | high,
+    triggers: string[],
+    requiredInputs: string[],
+    constraints: string[],
+    allowedSystems: string[],
+    escalationCriteria: string[],
+    stopConditions: string[],
+    prerequisites: string[],
+    steps: [{title, content, type: text | checkbox | decision}]
+  }
+- concepts: [{title, content, tags}]
+- lessons: [{title, content, date, severity}]
+- suggestedTags: string[]
+- warnings: string[]
+
+Guidelines:
+- Steps must be explicit (input → action → expected output).
+- Decision steps should include clear criteria.
+- Capture edge cases as lessons.
+- Be concise but complete.`
       },
       {
         role: 'user',

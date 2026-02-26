@@ -236,23 +236,65 @@ function generateIndexMd(data: EngramFormData, engramId: string): string {
 }
 
 function generateSkillMd(data: EngramFormData, engramId: string): string {
+  const profile = data.agentProfile || {};
   const frontmatter = {
     engram_id: engramId,
     type: 'skill',
+    skill_type: profile.skillType || 'procedural',
+    outcome: profile.outcome || '',
+    risk_level: profile.riskLevel || 'medium',
+    triggers: profile.triggers || [],
+    required_inputs: profile.requiredInputs || [],
+    constraints: profile.constraints || [],
+    allowed_systems: profile.allowedSystems || [],
+    escalation_criteria: profile.escalationCriteria || [],
+    stop_conditions: profile.stopConditions || [],
     difficulty: data.skill.difficulty || 'intermediate',
     time_estimate: data.skill.time_estimate || '15-20 minutes',
     prerequisites: data.skill.prerequisites || [],
   };
 
-  const steps = data.skill.steps?.map((step, index) => {
-    let text = '## Step ' + (index + 1) + ': ' + step.title + '\n\n' + step.content;
-    if (step.type === 'checkbox') {
-      text += '\n\n- [ ] Complete this step';
-    }
-    return text;
-  }).join('\n\n') || '';
+  const sections: string[] = [];
+  if (data.description) {
+    sections.push(data.description.trim());
+  }
+  if (profile.outcome) {
+    sections.push(`## Outcome\n${profile.outcome}`);
+  }
+  if (profile.triggers && profile.triggers.length > 0) {
+    sections.push(`## Triggers\n${profile.triggers.map((t) => `- ${t}`).join('\n')}`);
+  }
+  if (profile.requiredInputs && profile.requiredInputs.length > 0) {
+    sections.push(`## Required Inputs\n${profile.requiredInputs.map((t) => `- ${t}`).join('\n')}`);
+  }
+  if (profile.constraints && profile.constraints.length > 0) {
+    sections.push(`## Constraints\n${profile.constraints.map((t) => `- ${t}`).join('\n')}`);
+  }
+  if (profile.allowedSystems && profile.allowedSystems.length > 0) {
+    sections.push(`## Allowed Systems\n${profile.allowedSystems.map((t) => `- ${t}`).join('\n')}`);
+  }
+  if (profile.escalationCriteria && profile.escalationCriteria.length > 0) {
+    sections.push(`## Escalation Criteria\n${profile.escalationCriteria.map((t) => `- ${t}`).join('\n')}`);
+  }
+  if (profile.stopConditions && profile.stopConditions.length > 0) {
+    sections.push(`## Stop Conditions\n${profile.stopConditions.map((t) => `- ${t}`).join('\n')}`);
+  }
+  if (data.skill.prerequisites && data.skill.prerequisites.length > 0) {
+    sections.push(`## Prerequisites\n${data.skill.prerequisites.map((t) => `- ${t}`).join('\n')}`);
+  }
 
-  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + steps;
+  const steps =
+    data.skill.steps?.map((step, index) => {
+      const title = step.title?.trim();
+      const header = title ? `### Step ${index + 1}: ${title}` : `### Step ${index + 1}`;
+      const typeLabel = step.type ? `\nType: ${step.type}` : '';
+      const body = step.content ? `\n${step.content}` : '';
+      return `${header}${typeLabel}${body}`;
+    }).join('\n\n') || '### Step 1\nType: text\nAdd step-by-step instructions.';
+
+  sections.push(`## Steps\n\n${steps}`);
+
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + sections.join('\n\n');
 }
 
 function generateConceptFileMd(concept: any, engramId: string): string {
@@ -385,6 +427,15 @@ function generateAutoSkillMd(params: { engramId: string; title: string; sourceCu
   const frontmatter = {
     engram_id: params.engramId,
     type: 'skill',
+    skill_type: 'procedural',
+    outcome: '',
+    risk_level: 'medium',
+    triggers: [],
+    required_inputs: [],
+    constraints: [],
+    allowed_systems: [],
+    escalation_criteria: [],
+    stop_conditions: [],
     difficulty: 'intermediate',
     time_estimate: '10-15 minutes',
     prerequisites: [],
@@ -397,7 +448,7 @@ function generateAutoSkillMd(params: { engramId: string; title: string; sourceCu
     yaml.dump(frontmatter) +
     '---\n# ' +
     params.title +
-    '\n\nAuto-extracted draft. Add steps and decisions before use.'
+    '\n\nAuto-extracted draft. Add outcome, triggers, and step-by-step instructions before use.'
   );
 }
 

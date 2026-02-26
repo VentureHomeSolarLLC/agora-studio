@@ -70,6 +70,18 @@ export interface SkillInput {
   steps: SkillStep[];
 }
 
+export interface AgentProfile {
+  skillType?: 'consultation' | 'diagnostic' | 'procedural' | 'creative';
+  outcome?: string;
+  riskLevel?: 'low' | 'medium' | 'high';
+  triggers?: string[];
+  requiredInputs?: string[];
+  constraints?: string[];
+  allowedSystems?: string[];
+  escalationCriteria?: string[];
+  stopConditions?: string[];
+}
+
 export interface EngramFormData {
   contentType: ContentType;
   title: string;
@@ -83,6 +95,7 @@ export interface EngramFormData {
   lessons?: LessonInput[];
   rawContent?: string;
   aiAnalysis?: any;
+  agentProfile?: AgentProfile;
   agentExtraction?: {
     concepts: AgentExtractionConcept[];
     lessons: AgentExtractionLesson[];
