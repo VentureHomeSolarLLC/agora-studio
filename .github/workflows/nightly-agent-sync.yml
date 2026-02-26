@@ -1,0 +1,41 @@
+name: Nightly Agent Sync
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci
+
+      - name: Sync auto-extracted agent materials
+        working-directory: site
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/sync-agent-extracts.mjs
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: nightly agent extract sync"
+          title: "Nightly agent extract sync"
+          body: "Automated sync of auto-extracted agent materials."
+          branch: "automation/nightly-agent-sync"
+          delete-branch: true

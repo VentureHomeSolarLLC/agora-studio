@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import yaml from 'js-yaml';
 import { EngramFormData, CONTENT_TYPE_CONFIG } from '@/types/engram';
 
@@ -7,7 +8,7 @@ type ExtractionConcept = { title: string; content: string; forEngram?: string };
 type ExtractionLesson = { title: string; scenario: string; solution: string; forEngram?: string };
 type EngramGroup = { engramTitle: string; concepts: ExtractionConcept[]; lessons: ExtractionLesson[] };
 type IndexEntry = { title: string; fileName: string };
-type SourceInfo = { id: string; type: 'customer' | 'internal' };
+type SourceInfo = { id: string; type: 'customer' | 'internal'; hash: string };
 
 export function transformToEngram(formData: EngramFormData) {
   const engramId = slugify(formData.title);
@@ -32,6 +33,7 @@ export function transformToEngram(formData: EngramFormData) {
     const sourceInfo: SourceInfo = {
       id: engramId,
       type: formData.contentType === 'customer' ? 'customer' : 'internal',
+      hash: computeSourceHash(formData.title || engramId, formData.rawContent || ''),
     };
     const modeLookup = new Map(
       (formData.agentEngramModes || []).map((entry) => [entry.engramId, entry.mode])
@@ -174,6 +176,7 @@ function generateAutoConceptMd(
     auto_extracted: true,
     for_engram: concept.forEngram || 'general',
     ...sourceField,
+    source_hash: sourceInfo.hash,
     tags: [
       'auto-extracted',
       sourceInfo.type === 'internal' ? 'internal-content-derived' : 'customer-content-derived',
@@ -204,6 +207,7 @@ function generateAutoLessonMd(
     severity: 'medium',
     author: 'ai-extraction@venturehome.com',
     ...sourceField,
+    source_hash: sourceInfo.hash,
   };
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + lesson.title + '\n\n## Scenario\n' + lesson.scenario + '\n\n## Solution\n' + lesson.solution + '\n\n---\n*Auto-extracted from customer-facing content. Review before using in agent training.*';
@@ -623,6 +627,10 @@ function getUniqueFileName(
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
+}
+
+function computeSourceHash(title: string, content: string): string {
+  return crypto.createHash('sha256').update(`${title}\n${content}`).digest('hex');
 }
 
 export function validateEngramForm(data: EngramFormData): string[] {
