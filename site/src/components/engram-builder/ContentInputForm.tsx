@@ -14,19 +14,11 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
       <div>
         <h2 className="text-xl font-semibold mb-2">{config.label} Content</h2>
         <p className="text-gray-500">{config.promptContent}</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-2">
-          {config.promptTitle} <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={data.title}
-          onChange={(e) => onChange({ title: e.target.value })}
-          placeholder={config.promptTitle}
-          className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20 mb-4"
-        />
+        {data.title && (
+          <p className="text-sm text-gray-400 mt-2">
+            Title: <span className="text-gray-600">{data.title}</span>
+          </p>
+        )}
       </div>
 
       <div>

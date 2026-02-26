@@ -1,40 +1,135 @@
+import fs from 'fs';
+import path from 'path';
 import yaml from 'js-yaml';
 import { EngramFormData, CONTENT_TYPE_CONFIG } from '@/types/engram';
+
+type ExtractionConcept = { title: string; content: string; forEngram?: string };
+type ExtractionLesson = { title: string; scenario: string; solution: string; forEngram?: string };
+type EngramGroup = { engramTitle: string; concepts: ExtractionConcept[]; lessons: ExtractionLesson[] };
+type IndexEntry = { title: string; fileName: string };
 
 export function transformToEngram(formData: EngramFormData) {
   const engramId = slugify(formData.title);
   const config = CONTENT_TYPE_CONFIG[formData.contentType];
-  const analysis = formData.aiAnalysis;
   
   const files: Record<string, string> = {};
 
   if (formData.contentType === 'customer') {
-    files['_index.md'] = generateCustomerPageMd(formData, engramId);
-    
-    if (analysis?.agentTrainingPotential?.suggestedConcepts?.length > 0) {
-      analysis.agentTrainingPotential.suggestedConcepts.forEach((concept: any, i: number) => {
-        files[`concepts/auto-extracted-${i + 1}.md`] = generateAutoConceptMd(concept, engramId);
+    files[`customer-pages/${engramId}/_index.md`] = generateCustomerPageMd(formData, engramId);
+
+    const extractedConcepts = formData.agentExtraction?.concepts?.filter((c) => c.include) || [];
+    const extractedLessons = formData.agentExtraction?.lessons?.filter((l) => l.include) || [];
+    const mergeConcepts = formData.agentExtraction?.concepts?.filter((c) => c.mergeTargetPath) || [];
+    const mergeLessons = formData.agentExtraction?.lessons?.filter((l) => l.mergeTargetPath) || [];
+
+    const grouped = groupAgentExtracts(extractedConcepts, extractedLessons, engramId);
+    const repoRoot = getRepoRoot();
+
+    for (const [targetEngramId, group] of grouped.entries()) {
+      const engramDir = path.join(repoRoot, 'engrams-v2', targetEngramId);
+      const indexPath = path.join(engramDir, '_index.md');
+      const skillPath = path.join(engramDir, 'SKILL.md');
+
+      const createdIndex = !fs.existsSync(indexPath);
+      const createdSkill = !fs.existsSync(skillPath);
+
+      if (createdSkill) {
+        files[`engrams-v2/${targetEngramId}/SKILL.md`] = generateAutoSkillMd({
+          engramId: targetEngramId,
+          title: group.engramTitle,
+          sourceCustomerId: engramId,
+        });
+      }
+
+      const conceptEntries: IndexEntry[] = [];
+      const lessonEntries: IndexEntry[] = [];
+
+      // Create concept files
+      group.concepts.forEach((concept, i) => {
+        const baseSlug = slugify(concept.title || `auto-concept-${i + 1}`);
+        const fileName = getUniqueFileName(
+          path.join(engramDir, 'concepts'),
+          baseSlug,
+          '.md',
+          files,
+          `engrams-v2/${targetEngramId}/concepts/`
+        );
+        const conceptId = fileName.replace(/\.md$/, '');
+        files[`engrams-v2/${targetEngramId}/concepts/${fileName}`] = generateAutoConceptMd(
+          concept,
+          targetEngramId,
+          engramId,
+          conceptId
+        );
+        conceptEntries.push({ title: concept.title, fileName });
       });
+
+      // Create lesson files
+      group.lessons.forEach((lesson, i) => {
+        const datePrefix = new Date().toISOString().split('T')[0];
+        const baseSlug = `${datePrefix}-${slugify(lesson.title || `auto-lesson-${i + 1}`)}`;
+        const fileName = getUniqueFileName(
+          path.join(engramDir, 'lessons'),
+          baseSlug,
+          '.md',
+          files,
+          `engrams-v2/${targetEngramId}/lessons/`
+        );
+        const lessonId = fileName.replace(/\.md$/, '');
+        files[`engrams-v2/${targetEngramId}/lessons/${fileName}`] = generateAutoLessonMd(
+          lesson,
+          targetEngramId,
+          engramId,
+          lessonId
+        );
+        lessonEntries.push({ title: lesson.title, fileName });
+      });
+
+      // Update existing index to include new files
+      if (!createdIndex && (conceptEntries.length > 0 || lessonEntries.length > 0)) {
+        const existingContent = fs.readFileSync(indexPath, 'utf-8');
+        const updatedContent = updateIndexWithEntries(existingContent, conceptEntries, lessonEntries);
+        files[`engrams-v2/${targetEngramId}/_index.md`] = updatedContent;
+      }
+
+      if (createdIndex && (conceptEntries.length > 0 || lessonEntries.length > 0)) {
+        const indexContent = generateAutoEngramIndexMd({
+          engramId: targetEngramId,
+          title: group.engramTitle,
+          description: `Auto-extracted agent materials from customer content: ${formData.title}.`,
+          category: formData.category,
+          tags: formData.tags || [],
+          sourceCustomerId: engramId,
+          conceptEntries,
+          lessonEntries,
+        });
+        files[`engrams-v2/${targetEngramId}/_index.md`] = indexContent;
+      }
     }
-    if (analysis?.agentTrainingPotential?.suggestedLessons?.length > 0) {
-      analysis.agentTrainingPotential.suggestedLessons.forEach((lesson: any, i: number) => {
-        files[`lessons/auto-extracted-${i + 1}.md`] = generateAutoLessonMd(lesson, engramId);
+
+    if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
+      const mergeUpdates = buildMergeUpdates(mergeConcepts, mergeLessons, engramId);
+      mergeUpdates.forEach((blocks, targetPath) => {
+        const fullPath = path.join(repoRoot, targetPath);
+        const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
+        const updated = appendMergeBlocks(existing, blocks);
+        files[targetPath] = updated;
       });
     }
   } else if (formData.contentType === 'internal') {
-    files['_index.md'] = generateConceptMd(formData, engramId);
+    files[`concepts/${engramId}/_index.md`] = generateConceptMd(formData, engramId);
   } else {
-    files['_index.md'] = generateIndexMd(formData, engramId);
-    files['SKILL.md'] = generateSkillMd(formData, engramId);
+    files[`engrams-v2/${engramId}/_index.md`] = generateIndexMd(formData, engramId);
+    files[`engrams-v2/${engramId}/SKILL.md`] = generateSkillMd(formData, engramId);
     
     if (formData.concepts?.length) {
       formData.concepts.forEach((concept, i) => {
-        files[`concepts/${slugify(concept.title)}.md`] = generateConceptFileMd(concept, engramId);
+        files[`engrams-v2/${engramId}/concepts/${slugify(concept.title)}.md`] = generateConceptFileMd(concept, engramId);
       });
     }
     if (formData.lessons?.length) {
       formData.lessons.forEach((lesson, i) => {
-        files[`lessons/${lesson.date || '2024-01-01'}-${slugify(lesson.title)}.md`] = generateLessonMd(lesson, engramId);
+        files[`engrams-v2/${engramId}/lessons/${lesson.date || '2024-01-01'}-${slugify(lesson.title)}.md`] = generateLessonMd(lesson, engramId);
       });
     }
   }
@@ -43,44 +138,51 @@ export function transformToEngram(formData: EngramFormData) {
     id: engramId,
     files,
     outputPath: config.outputPath,
-    autoExtracted: analysis?.agentTrainingPotential ? {
-      concepts: analysis.agentTrainingPotential.suggestedConcepts?.length || 0,
-      lessons: analysis.agentTrainingPotential.suggestedLessons?.length || 0,
+    autoExtracted: formData.contentType === 'customer' ? {
+      concepts: formData.agentExtraction?.concepts?.filter((c) => c.include).length || 0,
+      lessons: formData.agentExtraction?.lessons?.filter((l) => l.include).length || 0,
     } : null,
   };
 }
 
-function generateAutoConceptMd(concept: any, parentId: string): string {
+function generateAutoConceptMd(concept: ExtractionConcept, parentId: string, sourceCustomerId: string, conceptId: string): string {
   const frontmatter = {
     engram_id: parentId,
-    concept_id: slugify(concept.title),
+    concept_id: conceptId,
     title: concept.title,
     type: 'concept',
     auto_extracted: true,
     for_engram: concept.forEngram || 'general',
+    source_customer_page: sourceCustomerId,
     tags: ['auto-extracted', 'customer-content-derived'],
   };
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + concept.title + '\n\n' + concept.content + '\n\n---\n*Auto-extracted from customer-facing content. Review for accuracy before using in agent training.*';
 }
 
-function generateAutoLessonMd(lesson: any, parentId: string): string {
+function generateAutoLessonMd(lesson: ExtractionLesson, parentId: string, sourceCustomerId: string, lessonId: string): string {
   const frontmatter = {
     engram_id: parentId,
-    lesson_id: new Date().toISOString().split('T')[0] + '-' + slugify(lesson.title),
-    date: new Date().toISOString().split('T')[0],
+    lesson_id: lessonId,
+    date: lessonId.split('-').slice(0, 3).join('-'),
     title: lesson.title,
     type: 'lesson',
     auto_extracted: true,
     for_engram: lesson.forEngram || 'general',
     severity: 'medium',
     author: 'ai-extraction@venturehome.com',
+    source_customer_page: sourceCustomerId,
   };
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + lesson.title + '\n\n## Scenario\n' + lesson.scenario + '\n\n## Solution\n' + lesson.solution + '\n\n---\n*Auto-extracted from customer-facing content. Review before using in agent training.*';
 }
 
 function generateCustomerPageMd(data: EngramFormData, id: string): string {
+  const hasAgentDerivatives =
+    (data.agentExtraction?.concepts?.some((c) => c.include || !!c.mergeTargetPath) ||
+      data.agentExtraction?.lessons?.some((l) => l.include || !!l.mergeTargetPath)) ||
+    false;
+
   const frontmatter = {
     id,
     title: data.title,
@@ -91,7 +193,7 @@ function generateCustomerPageMd(data: EngramFormData, id: string): string {
     content_type: 'customer-page',
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
-    has_agent_training_derivatives: data.aiAnalysis?.agentTrainingPotential?.hasExtractableContent || false,
+    has_agent_training_derivatives: hasAgentDerivatives,
   };
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + (data.description || '') + '\n\n' + (data.rawContent || '');
@@ -175,6 +277,245 @@ function generateLessonMd(lesson: any, engramId: string): string {
   };
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + lesson.title + '\n\n' + lesson.content;
+}
+
+function buildMergeUpdates(
+  concepts: Array<ExtractionConcept & { mergeTargetPath?: string }>,
+  lessons: Array<ExtractionLesson & { mergeTargetPath?: string }>,
+  sourceCustomerId: string
+): Map<string, { marker: string; content: string }[]> {
+  const updates = new Map<string, { marker: string; content: string }[]>();
+
+  const pushUpdate = (path: string, block: { marker: string; content: string }) => {
+    if (!updates.has(path)) updates.set(path, []);
+    updates.get(path)!.push(block);
+  };
+
+  concepts.forEach((concept, index) => {
+    if (!concept.mergeTargetPath) return;
+    const marker = `<!-- auto-extracted:customer:${sourceCustomerId}:concept:${slugify(concept.title || `concept-${index + 1}`)} -->`;
+    const content =
+      `\n\n${marker}\n` +
+      `## Added Context (Auto-extracted)\n` +
+      `Source: ${sourceCustomerId}\n\n` +
+      `${concept.content}\n`;
+    pushUpdate(concept.mergeTargetPath, { marker, content });
+  });
+
+  lessons.forEach((lesson, index) => {
+    if (!lesson.mergeTargetPath) return;
+    const marker = `<!-- auto-extracted:customer:${sourceCustomerId}:lesson:${slugify(lesson.title || `lesson-${index + 1}`)} -->`;
+    const content =
+      `\n\n${marker}\n` +
+      `## Added Context (Auto-extracted)\n` +
+      `Source: ${sourceCustomerId}\n\n` +
+      `### Scenario\n` +
+      `${lesson.scenario || ''}\n\n` +
+      `### Solution\n` +
+      `${lesson.solution || ''}\n`;
+    pushUpdate(lesson.mergeTargetPath, { marker, content });
+  });
+
+  return updates;
+}
+
+function appendMergeBlocks(existing: string, blocks: { marker: string; content: string }[]): string {
+  let updated = existing || '';
+  blocks.forEach((block) => {
+    if (!updated.includes(block.marker)) {
+      updated += block.content;
+    }
+  });
+  return updated;
+}
+
+function generateAutoEngramIndexMd(params: {
+  engramId: string;
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  sourceCustomerId: string;
+  conceptEntries: IndexEntry[];
+  lessonEntries: IndexEntry[];
+}): string {
+  const tags = Array.from(new Set([...(params.tags || []), 'auto-extracted']));
+  const frontmatter = {
+    id: params.engramId,
+    title: params.title,
+    description: params.description,
+    category: params.category,
+    tags,
+    audience: ['agent'],
+    content_type: 'engram',
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    version: '1.0',
+    auto_extracted: true,
+    source_customer_page: params.sourceCustomerId,
+  };
+
+  const conceptsList = params.conceptEntries.length
+    ? params.conceptEntries
+        .map((entry) => `- [${entry.fileName.replace(/\.md$/, '')}](concepts/${entry.fileName}) — ${entry.title}`)
+        .join('\n')
+    : '- No concepts yet';
+
+  const lessonsList = params.lessonEntries.length
+    ? params.lessonEntries
+        .map((entry) => `- [${entry.fileName.replace(/\.md$/, '')}](lessons/${entry.fileName}) — ${entry.title}`)
+        .join('\n')
+    : '- No lessons yet';
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    params.title +
+    '\n\n' +
+    params.description +
+    '\n\n## SKILL\nFile: SKILL.md\nCore procedure for this engram.\n\n## CONCEPTS\n' +
+    conceptsList +
+    '\n\n## LESSONS\n' +
+    lessonsList
+  );
+}
+
+function generateAutoSkillMd(params: { engramId: string; title: string; sourceCustomerId: string }): string {
+  const frontmatter = {
+    engram_id: params.engramId,
+    type: 'skill',
+    difficulty: 'intermediate',
+    time_estimate: '10-15 minutes',
+    prerequisites: [],
+    auto_extracted: true,
+    source_customer_page: params.sourceCustomerId,
+  };
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    params.title +
+    '\n\nAuto-extracted draft. Add steps and decisions before use.'
+  );
+}
+
+function groupAgentExtracts(
+  concepts: ExtractionConcept[],
+  lessons: ExtractionLesson[],
+  fallbackEngramId: string
+): Map<string, EngramGroup> {
+  const groups = new Map<string, EngramGroup>();
+
+  const ensureGroup = (engramKey: string, titleHint?: string) => {
+    if (!groups.has(engramKey)) {
+      const fallbackTitle = humanizeTitle(engramKey);
+      groups.set(engramKey, {
+        engramTitle: titleHint ? humanizeTitle(titleHint) : fallbackTitle,
+        concepts: [],
+        lessons: [],
+      });
+    }
+  };
+
+  concepts.forEach((concept) => {
+    const targetId = resolveTargetEngramId(concept.forEngram, fallbackEngramId);
+    ensureGroup(targetId, concept.forEngram || fallbackEngramId);
+    groups.get(targetId)!.concepts.push(concept);
+  });
+
+  lessons.forEach((lesson) => {
+    const targetId = resolveTargetEngramId(lesson.forEngram, fallbackEngramId);
+    ensureGroup(targetId, lesson.forEngram || fallbackEngramId);
+    groups.get(targetId)!.lessons.push(lesson);
+  });
+
+  return groups;
+}
+
+function resolveTargetEngramId(forEngram: string | undefined, fallbackEngramId: string): string {
+  const raw = (forEngram || '').trim();
+  if (!raw) return slugify(fallbackEngramId);
+  return slugify(raw);
+}
+
+function humanizeTitle(value: string): string {
+  return value
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function updateIndexWithEntries(
+  content: string,
+  conceptEntries: IndexEntry[],
+  lessonEntries: IndexEntry[]
+): string {
+  let updated = content;
+
+  if (conceptEntries.length > 0) {
+    updated = appendEntriesToSection(updated, 'CONCEPTS', conceptEntries, 'concepts/');
+  }
+
+  if (lessonEntries.length > 0) {
+    updated = appendEntriesToSection(updated, 'LESSONS', lessonEntries, 'lessons/');
+  }
+
+  return updated;
+}
+
+function appendEntriesToSection(
+  content: string,
+  sectionTitle: string,
+  entries: IndexEntry[],
+  pathPrefix: string
+): string {
+  const header = `## ${sectionTitle}`;
+  const existing = entries.filter((entry) => !content.includes(`${pathPrefix}${entry.fileName}`));
+  if (existing.length === 0) return content;
+
+  const lines = existing
+    .map((entry) => `- [${entry.fileName.replace(/\.md$/, '')}](${pathPrefix}${entry.fileName}) — ${entry.title}`)
+    .join('\n');
+
+  const headerIndex = content.indexOf(header);
+  if (headerIndex === -1) {
+    return `${content}\n\n${header}\n${lines}\n`;
+  }
+
+  const nextHeaderIndex = content.indexOf('\n## ', headerIndex + header.length);
+  if (nextHeaderIndex === -1) {
+    return `${content.trimEnd()}\n${lines}\n`;
+  }
+
+  const before = content.slice(0, nextHeaderIndex);
+  const after = content.slice(nextHeaderIndex);
+  return `${before.trimEnd()}\n${lines}\n${after}`;
+}
+
+function getRepoRoot(): string {
+  return path.join(process.cwd(), '..');
+}
+
+function getUniqueFileName(
+  dirPath: string,
+  baseSlug: string,
+  extension: string,
+  existingFiles: Record<string, string>,
+  pathPrefix: string
+): string {
+  let candidate = `${baseSlug}${extension}`;
+  let counter = 2;
+  while (
+    fs.existsSync(path.join(dirPath, candidate)) ||
+    Object.prototype.hasOwnProperty.call(existingFiles, `${pathPrefix}${candidate}`)
+  ) {
+    candidate = `${baseSlug}-${counter}${extension}`;
+    counter += 1;
+  }
+  return candidate;
 }
 
 function slugify(text: string): string {

@@ -38,6 +38,9 @@ export default function NewEngramPage() {
     lessons: [],
     rawContent: '',
     aiAnalysis: null,
+    agentExtraction: null,
+    duplicateResolutionConfirmed: false,
+    duplicateCheck: null,
   });
 
   const updateFormData = (updates: Partial<EngramFormData>) => {
@@ -51,6 +54,9 @@ export default function NewEngramPage() {
       audience: config.audience as any,
       tags: [...config.defaultTags],
       aiAnalysis: null,
+      agentExtraction: null,
+      duplicateResolutionConfirmed: false,
+      duplicateCheck: null,
     });
   };
 
@@ -87,6 +93,9 @@ export default function NewEngramPage() {
       if (formData.contentType === 'agent' && analysis.steps) {
         updateFormData({
           aiAnalysis: analysis,
+          agentExtraction: null,
+          duplicateResolutionConfirmed: false,
+          duplicateCheck: data.duplicateCheck || null,
           skill: {
             ...formData.skill,
             steps: analysis.steps,
@@ -97,14 +106,44 @@ export default function NewEngramPage() {
           tags: [...currentTags, ...newTags],
         });
       } else if (formData.contentType === 'customer') {
+        const suggestedConcepts = analysis?.agentTrainingPotential?.suggestedConcepts || [];
+        const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
         updateFormData({
           aiAnalysis: analysis,
+          agentExtraction: {
+            concepts: suggestedConcepts.map((concept: any) => ({
+              title: concept.title,
+              content: concept.content,
+              forEngram: concept.forEngram,
+              include: false,
+              mergeTargetPath: undefined,
+              mergeTargetTitle: undefined,
+              mergeTargetType: undefined,
+              duplicate: concept.duplicate,
+            })),
+            lessons: suggestedLessons.map((lesson: any) => ({
+              title: lesson.title,
+              scenario: lesson.scenario,
+              solution: lesson.solution,
+              forEngram: lesson.forEngram,
+              include: false,
+              mergeTargetPath: undefined,
+              mergeTargetTitle: undefined,
+              mergeTargetType: undefined,
+              duplicate: lesson.duplicate,
+            })),
+          },
+          duplicateResolutionConfirmed: false,
+          duplicateCheck: data.duplicateCheck || null,
           concepts: analysis.concepts || [],
           tags: [...currentTags, ...newTags],
         });
       } else if (formData.contentType === 'internal') {
         updateFormData({
           aiAnalysis: analysis,
+          agentExtraction: null,
+          duplicateResolutionConfirmed: false,
+          duplicateCheck: data.duplicateCheck || null,
           concepts: analysis.sections?.map((s: any) => ({
             title: s.title,
             content: s.content,
@@ -120,6 +159,11 @@ export default function NewEngramPage() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleAnalyzeAndContinue = async () => {
+    setStep(4);
+    await handleAIAnalysis();
   };
 
   const handlePublish = async () => {
@@ -162,11 +206,11 @@ export default function NewEngramPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-8\">Create New Content</h1>
+      <h1 className="text-2xl font-bold mb-8">Create New Content</h1>
       <StepIndicator steps={STEPS} current={step} />
       
-      {submitError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6\">{submitError}</div>}
-      {analysisError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6\">{analysisError}</div>}
+      {submitError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6">{submitError}</div>}
+      {analysisError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6">{analysisError}</div>}
       
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         {step === 1 && <ContentTypeSelector selected={formData.contentType} onChange={handleContentTypeChange} />}
@@ -182,12 +226,28 @@ export default function NewEngramPage() {
           />
         )}
         {step === 5 && <MetadataForm data={formData} onChange={updateFormData} />}
-        {step === 6 && <ReviewAndPublish data={formData} onPublish={handlePublish} isSubmitting={isSubmitting} contentType={formData.contentType} />}
+        {step === 6 && (
+          <ReviewAndPublish
+            data={formData}
+            onChange={updateFormData}
+            onPublish={handlePublish}
+            isSubmitting={isSubmitting}
+            contentType={formData.contentType}
+          />
+        )}
       </div>
 
       <div className="flex justify-between mt-6">
         <button onClick={() => setStep(step - 1)} disabled={step === 1} className="px-6 py-3 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30">Previous</button>
-        {step === 3 && <button onClick={() => setStep(4)} disabled={!formData.rawContent || !formData.title} className="bg-gray-900 text-white px-6 py-3 rounded-lg">Analyze</button>}
+        {step === 3 && (
+          <button
+            onClick={handleAnalyzeAndContinue}
+            disabled={!formData.rawContent || !formData.title || isAnalyzing}
+            className="bg-gray-900 text-white px-6 py-3 rounded-lg disabled:opacity-50"
+          >
+            {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+          </button>
+        )}
         {step !== 3 && step !== 4 && step !== 6 && <button onClick={() => setStep(step + 1)} className="bg-gray-900 text-white px-6 py-3 rounded-lg">Next</button>}
       </div>
     </div>
