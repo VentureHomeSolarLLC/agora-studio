@@ -67,6 +67,14 @@ export default function NewEngramPage() {
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
+  const AUTO_INCLUDE_CONFIDENCE = 0.7;
+  const shouldAutoInclude = (item: { confidence?: number; riskLevel?: string; duplicate?: { similar: boolean } }) => {
+    if (item?.duplicate?.similar) return false;
+    if (item?.riskLevel === 'high') return false;
+    if (typeof item?.confidence === 'number' && item.confidence < AUTO_INCLUDE_CONFIDENCE) return false;
+    return true;
+  };
+
   const handleContentTypeChange = (type: ContentType) => {
     const config = CONTENT_TYPE_CONFIG[type];
     updateFormData({
@@ -173,7 +181,9 @@ export default function NewEngramPage() {
               title: concept.title,
               content: concept.content,
               forEngram: concept.forEngram,
-              include: false,
+              confidence: concept.confidence,
+              riskLevel: concept.riskLevel,
+              include: shouldAutoInclude(concept),
               mergeTargetPath: undefined,
               mergeTargetTitle: undefined,
               mergeTargetType: undefined,
@@ -184,7 +194,9 @@ export default function NewEngramPage() {
               scenario: lesson.scenario,
               solution: lesson.solution,
               forEngram: lesson.forEngram,
-              include: false,
+              confidence: lesson.confidence,
+              riskLevel: lesson.riskLevel,
+              include: shouldAutoInclude(lesson),
               mergeTargetPath: undefined,
               mergeTargetTitle: undefined,
               mergeTargetType: undefined,
@@ -215,7 +227,9 @@ export default function NewEngramPage() {
               title: concept.title,
               content: concept.content,
               forEngram: concept.forEngram,
-              include: false,
+              confidence: concept.confidence,
+              riskLevel: concept.riskLevel,
+              include: shouldAutoInclude(concept),
               mergeTargetPath: undefined,
               mergeTargetTitle: undefined,
               mergeTargetType: undefined,
@@ -226,7 +240,9 @@ export default function NewEngramPage() {
               scenario: lesson.scenario,
               solution: lesson.solution,
               forEngram: lesson.forEngram,
-              include: false,
+              confidence: lesson.confidence,
+              riskLevel: lesson.riskLevel,
+              include: shouldAutoInclude(lesson),
               mergeTargetPath: undefined,
               mergeTargetTitle: undefined,
               mergeTargetType: undefined,

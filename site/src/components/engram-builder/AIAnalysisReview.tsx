@@ -40,6 +40,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
   const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const isKnowledgeOnly = data.agentProfile?.skillMode === 'knowledge';
+  const AUTO_INCLUDE_CONFIDENCE = 0.7;
 
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
@@ -487,6 +488,11 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       <p className="text-xs text-gray-500 mt-1">
                         For Engram: {concept.forEngram || 'general'}
                       </p>
+                      {(concept.riskLevel === 'high' || (typeof concept.confidence === 'number' && concept.confidence < AUTO_INCLUDE_CONFIDENCE)) && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          {concept.riskLevel === 'high' ? 'High-risk content — not auto-selected.' : 'Low confidence — not auto-selected.'}
+                        </p>
+                      )}
                       {isDuplicate && topMatch && (
                         <div className="text-xs text-amber-700 mt-2">
                           Likely duplicate of <span className="font-medium">{topMatch.title}</span> ({Math.round(topMatch.score * 100)}%).
@@ -570,6 +576,11 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       <p className="text-xs text-gray-500 mt-1">
                         For Engram: {lesson.forEngram || 'general'}
                       </p>
+                      {(lesson.riskLevel === 'high' || (typeof lesson.confidence === 'number' && lesson.confidence < AUTO_INCLUDE_CONFIDENCE)) && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          {lesson.riskLevel === 'high' ? 'High-risk content — not auto-selected.' : 'Low confidence — not auto-selected.'}
+                        </p>
+                      )}
                       {isDuplicate && topMatch && (
                         <div className="text-xs text-amber-700 mt-2">
                           Likely duplicate of <span className="font-medium">{topMatch.title}</span> ({Math.round(topMatch.score * 100)}%).

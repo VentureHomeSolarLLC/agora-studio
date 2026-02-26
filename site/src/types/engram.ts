@@ -24,6 +24,8 @@ export interface AgentExtractionConcept {
   title: string;
   content: string;
   forEngram?: string;
+  confidence?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
   include: boolean;
   mergeTargetPath?: string;
   mergeTargetTitle?: string;
@@ -46,6 +48,8 @@ export interface AgentExtractionLesson {
   scenario: string;
   solution: string;
   forEngram?: string;
+  confidence?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
   include: boolean;
   mergeTargetPath?: string;
   mergeTargetTitle?: string;

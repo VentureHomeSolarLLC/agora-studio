@@ -364,15 +364,16 @@ Return JSON with:
 - missingContentSections: [{sectionTitle, content, placement, whyImportant}]
 - agentTrainingPotential: {
     hasExtractableContent: boolean,
-    suggestedConcepts: [{title, content, forEngram: string}],
-    suggestedLessons: [{title, scenario, solution, forEngram: string}],
+    suggestedConcepts: [{title, content, forEngram: string, confidence: number, riskLevel: low | medium | high}],
+    suggestedLessons: [{title, scenario, solution, forEngram: string, confidence: number, riskLevel: low | medium | high}],
     engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
   }
 - suggestedTags: array
 - warnings: array
 
 IMPORTANT: Solar panels and batteries don't need regular check-ups, only when there's an issue.
-When assigning engramModes, use procedure if the content implies a repeatable process; otherwise use knowledge.`
+When assigning engramModes, use procedure if the content implies a repeatable process; otherwise use knowledge.
+Set confidence from 0 to 1, and mark riskLevel as high if using the content without review could cause safety, legal, or financial harm.`
       },
       {
         role: 'user',
@@ -403,12 +404,13 @@ Return JSON with:
 - suggestedTags: array
 - agentTrainingPotential: {
     hasExtractableContent: boolean,
-    suggestedConcepts: [{title, content, forEngram: string}],
-    suggestedLessons: [{title, scenario, solution, forEngram: string}],
+    suggestedConcepts: [{title, content, forEngram: string, confidence: number, riskLevel: low | medium | high}],
+    suggestedLessons: [{title, scenario, solution, forEngram: string, confidence: number, riskLevel: low | medium | high}],
     engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
   }
 
-Use procedure mode only when the content describes a repeatable process; otherwise use knowledge.`
+Use procedure mode only when the content describes a repeatable process; otherwise use knowledge.
+Set confidence from 0 to 1, and mark riskLevel as high if using the content without review could cause safety, legal, or financial harm.`
       },
       {
         role: 'user',
