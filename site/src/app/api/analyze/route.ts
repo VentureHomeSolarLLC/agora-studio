@@ -23,28 +23,11 @@ export async function POST(request: NextRequest) {
     switch (contentType) {
       case 'customer':
         analysis = await analyzeCustomerContent(content, title);
-        if (analysis?.agentTrainingPotential) {
-          const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
-          if (Array.isArray(analysis.agentTrainingPotential.suggestedConcepts)) {
-            analysis.agentTrainingPotential.suggestedConcepts = analysis.agentTrainingPotential.suggestedConcepts.map((concept: any) => ({
-              ...concept,
-              duplicate: findDuplicatesForText(concept.title || 'Untitled concept', concept.content || '', agentTypes),
-            }));
-          }
-          if (Array.isArray(analysis.agentTrainingPotential.suggestedLessons)) {
-            analysis.agentTrainingPotential.suggestedLessons = analysis.agentTrainingPotential.suggestedLessons.map((lesson: any) => ({
-              ...lesson,
-              duplicate: findDuplicatesForText(
-                lesson.title || 'Untitled lesson',
-                `${lesson.scenario || ''}\n${lesson.solution || ''}`,
-                agentTypes
-              ),
-            }));
-          }
-        }
+        analysis = enrichAgentTrainingPotential(analysis);
         break;
       case 'internal':
         analysis = await analyzeInternalContent(content, title);
+        analysis = enrichAgentTrainingPotential(analysis);
         break;
       case 'agent':
         analysis = await analyzeAgentInstructions(content, title, agentMode);
@@ -74,6 +57,28 @@ type IndexedDoc = {
   tokens: Map<string, number>;
   norm: number;
 };
+
+function enrichAgentTrainingPotential(analysis: any) {
+  if (!analysis?.agentTrainingPotential) return analysis;
+  const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
+  if (Array.isArray(analysis.agentTrainingPotential.suggestedConcepts)) {
+    analysis.agentTrainingPotential.suggestedConcepts = analysis.agentTrainingPotential.suggestedConcepts.map((concept: any) => ({
+      ...concept,
+      duplicate: findDuplicatesForText(concept.title || 'Untitled concept', concept.content || '', agentTypes),
+    }));
+  }
+  if (Array.isArray(analysis.agentTrainingPotential.suggestedLessons)) {
+    analysis.agentTrainingPotential.suggestedLessons = analysis.agentTrainingPotential.suggestedLessons.map((lesson: any) => ({
+      ...lesson,
+      duplicate: findDuplicatesForText(
+        lesson.title || 'Untitled lesson',
+        `${lesson.scenario || ''}\n${lesson.solution || ''}`,
+        agentTypes
+      ),
+    }));
+  }
+  return analysis;
+}
 
 const STOP_WORDS = new Set([
   'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'but', 'for', 'from', 'if',
@@ -360,12 +365,14 @@ Return JSON with:
 - agentTrainingPotential: {
     hasExtractableContent: boolean,
     suggestedConcepts: [{title, content, forEngram: string}],
-    suggestedLessons: [{title, scenario, solution, forEngram: string}]
+    suggestedLessons: [{title, scenario, solution, forEngram: string}],
+    engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
   }
 - suggestedTags: array
 - warnings: array
 
-IMPORTANT: Solar panels and batteries don't need regular check-ups, only when there's an issue.`
+IMPORTANT: Solar panels and batteries don't need regular check-ups, only when there's an issue.
+When assigning engramModes, use procedure if the content implies a repeatable process; otherwise use knowledge.`
       },
       {
         role: 'user',
@@ -386,7 +393,22 @@ async function analyzeInternalContent(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: 'Analyze internal docs. Return JSON with sections, technicalDetails, edgeCases, missingContent, suggestedTags.'
+        content: `Analyze internal docs for the Venture Home team.
+
+Return JSON with:
+- sections: [{title, content}]
+- technicalDetails: array
+- edgeCases: array
+- missingContent: array
+- suggestedTags: array
+- agentTrainingPotential: {
+    hasExtractableContent: boolean,
+    suggestedConcepts: [{title, content, forEngram: string}],
+    suggestedLessons: [{title, scenario, solution, forEngram: string}],
+    engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
+  }
+
+Use procedure mode only when the content describes a repeatable process; otherwise use knowledge.`
       },
       {
         role: 'user',

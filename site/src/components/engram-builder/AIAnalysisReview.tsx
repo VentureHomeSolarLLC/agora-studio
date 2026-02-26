@@ -196,6 +196,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     0;
   const hasNetNewCandidates = netNewCounts.concepts + netNewCounts.lessons > 0;
   const hasNoNetNewAgentContent = extraction && !hasNetNewCandidates;
+  const hasEngramModes = Array.isArray(data.agentEngramModes) && data.agentEngramModes.length > 0;
   const repoLinkForPath = (path: string) =>
     `https://github.com/VentureHomeSolarLLC/agora-studio/blob/main/${path}`;
   const resolveViewUrl = (url?: string) => {
@@ -424,7 +425,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
       {renderDuplicateCheck()}
 
-      {data.contentType === 'customer' && extraction && (extraction.concepts.length > 0 || extraction.lessons.length > 0) && (
+      {data.contentType !== 'agent' && extraction && (extraction.concepts.length > 0 || extraction.lessons.length > 0) && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between gap-4 mb-3">
             <div>
@@ -450,6 +451,25 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
               </button>
             </div>
           </div>
+
+          {hasEngramModes && (
+            <div className="mb-4 bg-white border border-blue-100 rounded-lg p-3">
+              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Suggested Engram Modes</p>
+              <div className="space-y-2 text-sm text-blue-900">
+                {data.agentEngramModes?.map((mode, idx) => (
+                  <div key={`${mode.engramId}-${idx}`} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{mode.label || mode.engramId}</span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                        {mode.mode === 'procedure' ? 'Procedure' : 'Knowledge'}
+                      </span>
+                    </div>
+                    {mode.rationale && <p className="text-xs text-blue-700">{mode.rationale}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {extraction.concepts.length > 0 && (
             <div className="space-y-3">
@@ -622,7 +642,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {data.contentType === 'customer' && extraction && hasNoNetNewAgentContent && (
+      {data.contentType !== 'agent' && extraction && hasNoNetNewAgentContent && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <h3 className="font-medium text-green-900 mb-1">No net-new agent content detected</h3>
           <p className="text-sm text-green-800">
@@ -633,7 +653,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {data.contentType === 'customer' && extraction && hasNetNewCandidates && !hasSelectedExtraction && (
+      {data.contentType !== 'agent' && extraction && hasNetNewCandidates && !hasSelectedExtraction && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-blue-900 mb-1">No agent-training items selected yet</h3>
           <p className="text-sm text-blue-800">Select net-new items above to create draft Engram files, or merge duplicates into existing files.</p>

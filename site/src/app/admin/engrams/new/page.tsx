@@ -50,10 +50,18 @@ export default function NewEngramPage() {
       stopConditions: [],
       outcome: '',
     },
+    agentEngramModes: [],
     agentExtraction: null,
     duplicateResolutionConfirmed: false,
     duplicateCheck: null,
   });
+
+  const slugify = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50);
 
   const updateFormData = (updates: Partial<EngramFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -78,6 +86,7 @@ export default function NewEngramPage() {
         stopConditions: [],
         outcome: '',
       } : undefined,
+      agentEngramModes: [],
       agentExtraction: null,
       duplicateResolutionConfirmed: false,
       duplicateCheck: null,
@@ -149,6 +158,14 @@ export default function NewEngramPage() {
       } else if (formData.contentType === 'customer') {
         const suggestedConcepts = analysis?.agentTrainingPotential?.suggestedConcepts || [];
         const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
+        const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
+        const fallbackId = slugify(formData.title || 'engram');
+        const agentEngramModes = suggestedModes.map((mode: any) => ({
+          engramId: slugify(mode.forEngram || formData.title || fallbackId),
+          label: mode.forEngram || formData.title || fallbackId,
+          mode: mode.mode === 'procedure' ? 'procedure' : 'knowledge',
+          rationale: mode.rationale,
+        }));
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: {
@@ -174,15 +191,49 @@ export default function NewEngramPage() {
               duplicate: lesson.duplicate,
             })),
           },
+          agentEngramModes,
           duplicateResolutionConfirmed: false,
           duplicateCheck: data.duplicateCheck || null,
           concepts: analysis.concepts || [],
           tags: [...currentTags, ...newTags],
         });
       } else if (formData.contentType === 'internal') {
+        const suggestedConcepts = analysis?.agentTrainingPotential?.suggestedConcepts || [];
+        const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
+        const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
+        const fallbackId = slugify(formData.title || 'engram');
+        const agentEngramModes = suggestedModes.map((mode: any) => ({
+          engramId: slugify(mode.forEngram || formData.title || fallbackId),
+          label: mode.forEngram || formData.title || fallbackId,
+          mode: mode.mode === 'procedure' ? 'procedure' : 'knowledge',
+          rationale: mode.rationale,
+        }));
         updateFormData({
           aiAnalysis: analysis,
-          agentExtraction: null,
+          agentExtraction: {
+            concepts: suggestedConcepts.map((concept: any) => ({
+              title: concept.title,
+              content: concept.content,
+              forEngram: concept.forEngram,
+              include: false,
+              mergeTargetPath: undefined,
+              mergeTargetTitle: undefined,
+              mergeTargetType: undefined,
+              duplicate: concept.duplicate,
+            })),
+            lessons: suggestedLessons.map((lesson: any) => ({
+              title: lesson.title,
+              scenario: lesson.scenario,
+              solution: lesson.solution,
+              forEngram: lesson.forEngram,
+              include: false,
+              mergeTargetPath: undefined,
+              mergeTargetTitle: undefined,
+              mergeTargetType: undefined,
+              duplicate: lesson.duplicate,
+            })),
+          },
+          agentEngramModes,
           duplicateResolutionConfirmed: false,
           duplicateCheck: data.duplicateCheck || null,
           concepts: analysis.sections?.map((s: any) => ({

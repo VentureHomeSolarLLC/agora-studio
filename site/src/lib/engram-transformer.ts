@@ -7,6 +7,7 @@ type ExtractionConcept = { title: string; content: string; forEngram?: string };
 type ExtractionLesson = { title: string; scenario: string; solution: string; forEngram?: string };
 type EngramGroup = { engramTitle: string; concepts: ExtractionConcept[]; lessons: ExtractionLesson[] };
 type IndexEntry = { title: string; fileName: string };
+type SourceInfo = { id: string; type: 'customer' | 'internal' };
 
 export function transformToEngram(formData: EngramFormData) {
   const engramId = slugify(formData.title);
@@ -14,8 +15,12 @@ export function transformToEngram(formData: EngramFormData) {
   
   const files: Record<string, string> = {};
 
-  if (formData.contentType === 'customer') {
-    files[`customer-pages/${engramId}/_index.md`] = generateCustomerPageMd(formData, engramId);
+  if (formData.contentType === 'customer' || formData.contentType === 'internal') {
+    if (formData.contentType === 'customer') {
+      files[`customer-pages/${engramId}/_index.md`] = generateCustomerPageMd(formData, engramId);
+    } else {
+      files[`concepts/${engramId}/_index.md`] = generateConceptMd(formData, engramId);
+    }
 
     const extractedConcepts = formData.agentExtraction?.concepts?.filter((c) => c.include) || [];
     const extractedLessons = formData.agentExtraction?.lessons?.filter((l) => l.include) || [];
@@ -24,6 +29,13 @@ export function transformToEngram(formData: EngramFormData) {
 
     const grouped = groupAgentExtracts(extractedConcepts, extractedLessons, engramId);
     const repoRoot = getRepoRoot();
+    const sourceInfo: SourceInfo = {
+      id: engramId,
+      type: formData.contentType === 'customer' ? 'customer' : 'internal',
+    };
+    const modeLookup = new Map(
+      (formData.agentEngramModes || []).map((entry) => [entry.engramId, entry.mode])
+    );
 
     for (const [targetEngramId, group] of grouped.entries()) {
       const engramDir = path.join(repoRoot, 'engrams-v2', targetEngramId);
@@ -37,7 +49,8 @@ export function transformToEngram(formData: EngramFormData) {
         files[`engrams-v2/${targetEngramId}/SKILL.md`] = generateAutoSkillMd({
           engramId: targetEngramId,
           title: group.engramTitle,
-          sourceCustomerId: engramId,
+          sourceInfo,
+          mode: modeLookup.get(targetEngramId) || 'knowledge',
         });
       }
 
@@ -58,7 +71,7 @@ export function transformToEngram(formData: EngramFormData) {
         files[`engrams-v2/${targetEngramId}/concepts/${fileName}`] = generateAutoConceptMd(
           concept,
           targetEngramId,
-          engramId,
+          sourceInfo,
           conceptId
         );
         conceptEntries.push({ title: concept.title, fileName });
@@ -79,7 +92,7 @@ export function transformToEngram(formData: EngramFormData) {
         files[`engrams-v2/${targetEngramId}/lessons/${fileName}`] = generateAutoLessonMd(
           lesson,
           targetEngramId,
-          engramId,
+          sourceInfo,
           lessonId
         );
         lessonEntries.push({ title: lesson.title, fileName });
@@ -96,10 +109,10 @@ export function transformToEngram(formData: EngramFormData) {
         const indexContent = generateAutoEngramIndexMd({
           engramId: targetEngramId,
           title: group.engramTitle,
-          description: `Auto-extracted agent materials from customer content: ${formData.title}.`,
+          description: `Auto-extracted agent materials from ${formData.contentType} content: ${formData.title}.`,
           category: formData.category,
           tags: formData.tags || [],
-          sourceCustomerId: engramId,
+          sourceInfo,
           conceptEntries,
           lessonEntries,
         });
@@ -108,7 +121,7 @@ export function transformToEngram(formData: EngramFormData) {
     }
 
     if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
-      const mergeUpdates = buildMergeUpdates(mergeConcepts, mergeLessons, engramId);
+      const mergeUpdates = buildMergeUpdates(mergeConcepts, mergeLessons, sourceInfo);
       mergeUpdates.forEach((blocks, targetPath) => {
         const fullPath = path.join(repoRoot, targetPath);
         const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
@@ -116,8 +129,6 @@ export function transformToEngram(formData: EngramFormData) {
         files[targetPath] = updated;
       });
     }
-  } else if (formData.contentType === 'internal') {
-    files[`concepts/${engramId}/_index.md`] = generateConceptMd(formData, engramId);
   } else {
     files[`engrams-v2/${engramId}/_index.md`] = generateIndexMd(formData, engramId);
     files[`engrams-v2/${engramId}/SKILL.md`] = generateSkillMd(formData, engramId);
@@ -145,7 +156,16 @@ export function transformToEngram(formData: EngramFormData) {
   };
 }
 
-function generateAutoConceptMd(concept: ExtractionConcept, parentId: string, sourceCustomerId: string, conceptId: string): string {
+function generateAutoConceptMd(
+  concept: ExtractionConcept,
+  parentId: string,
+  sourceInfo: SourceInfo,
+  conceptId: string
+): string {
+  const sourceField =
+    sourceInfo.type === 'internal'
+      ? { source_internal_doc: sourceInfo.id }
+      : { source_customer_page: sourceInfo.id };
   const frontmatter = {
     engram_id: parentId,
     concept_id: conceptId,
@@ -153,14 +173,26 @@ function generateAutoConceptMd(concept: ExtractionConcept, parentId: string, sou
     type: 'concept',
     auto_extracted: true,
     for_engram: concept.forEngram || 'general',
-    source_customer_page: sourceCustomerId,
-    tags: ['auto-extracted', 'customer-content-derived'],
+    ...sourceField,
+    tags: [
+      'auto-extracted',
+      sourceInfo.type === 'internal' ? 'internal-content-derived' : 'customer-content-derived',
+    ],
   };
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + concept.title + '\n\n' + concept.content + '\n\n---\n*Auto-extracted from customer-facing content. Review for accuracy before using in agent training.*';
 }
 
-function generateAutoLessonMd(lesson: ExtractionLesson, parentId: string, sourceCustomerId: string, lessonId: string): string {
+function generateAutoLessonMd(
+  lesson: ExtractionLesson,
+  parentId: string,
+  sourceInfo: SourceInfo,
+  lessonId: string
+): string {
+  const sourceField =
+    sourceInfo.type === 'internal'
+      ? { source_internal_doc: sourceInfo.id }
+      : { source_customer_page: sourceInfo.id };
   const frontmatter = {
     engram_id: parentId,
     lesson_id: lessonId,
@@ -171,7 +203,7 @@ function generateAutoLessonMd(lesson: ExtractionLesson, parentId: string, source
     for_engram: lesson.forEngram || 'general',
     severity: 'medium',
     author: 'ai-extraction@venturehome.com',
-    source_customer_page: sourceCustomerId,
+    ...sourceField,
   };
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + lesson.title + '\n\n## Scenario\n' + lesson.scenario + '\n\n## Solution\n' + lesson.solution + '\n\n---\n*Auto-extracted from customer-facing content. Review before using in agent training.*';
@@ -332,7 +364,7 @@ function generateLessonMd(lesson: any, engramId: string): string {
 function buildMergeUpdates(
   concepts: Array<ExtractionConcept & { mergeTargetPath?: string }>,
   lessons: Array<ExtractionLesson & { mergeTargetPath?: string }>,
-  sourceCustomerId: string
+  sourceInfo: SourceInfo
 ): Map<string, { marker: string; content: string }[]> {
   const updates = new Map<string, { marker: string; content: string }[]>();
 
@@ -343,22 +375,22 @@ function buildMergeUpdates(
 
   concepts.forEach((concept, index) => {
     if (!concept.mergeTargetPath) return;
-    const marker = `<!-- auto-extracted:customer:${sourceCustomerId}:concept:${slugify(concept.title || `concept-${index + 1}`)} -->`;
+    const marker = `<!-- auto-extracted:${sourceInfo.type}:${sourceInfo.id}:concept:${slugify(concept.title || `concept-${index + 1}`)} -->`;
     const content =
       `\n\n${marker}\n` +
       `## Added Context (Auto-extracted)\n` +
-      `Source: ${sourceCustomerId}\n\n` +
+      `Source: ${sourceInfo.id}\n\n` +
       `${concept.content}\n`;
     pushUpdate(concept.mergeTargetPath, { marker, content });
   });
 
   lessons.forEach((lesson, index) => {
     if (!lesson.mergeTargetPath) return;
-    const marker = `<!-- auto-extracted:customer:${sourceCustomerId}:lesson:${slugify(lesson.title || `lesson-${index + 1}`)} -->`;
+    const marker = `<!-- auto-extracted:${sourceInfo.type}:${sourceInfo.id}:lesson:${slugify(lesson.title || `lesson-${index + 1}`)} -->`;
     const content =
       `\n\n${marker}\n` +
       `## Added Context (Auto-extracted)\n` +
-      `Source: ${sourceCustomerId}\n\n` +
+      `Source: ${sourceInfo.id}\n\n` +
       `### Scenario\n` +
       `${lesson.scenario || ''}\n\n` +
       `### Solution\n` +
@@ -385,11 +417,15 @@ function generateAutoEngramIndexMd(params: {
   description: string;
   category: string;
   tags: string[];
-  sourceCustomerId: string;
+  sourceInfo: SourceInfo;
   conceptEntries: IndexEntry[];
   lessonEntries: IndexEntry[];
 }): string {
   const tags = Array.from(new Set([...(params.tags || []), 'auto-extracted']));
+  const sourceField =
+    params.sourceInfo.type === 'internal'
+      ? { source_internal_doc: params.sourceInfo.id }
+      : { source_customer_page: params.sourceInfo.id };
   const frontmatter = {
     id: params.engramId,
     title: params.title,
@@ -402,7 +438,7 @@ function generateAutoEngramIndexMd(params: {
     updated: new Date().toISOString(),
     version: '1.0',
     auto_extracted: true,
-    source_customer_page: params.sourceCustomerId,
+    ...sourceField,
   };
 
   const conceptsList = params.conceptEntries.length
@@ -431,12 +467,17 @@ function generateAutoEngramIndexMd(params: {
   );
 }
 
-function generateAutoSkillMd(params: { engramId: string; title: string; sourceCustomerId: string }): string {
+function generateAutoSkillMd(params: {
+  engramId: string;
+  title: string;
+  sourceInfo: SourceInfo;
+  mode: 'procedure' | 'knowledge';
+}): string {
   const frontmatter = {
     engram_id: params.engramId,
     type: 'skill',
-    mode: 'knowledge',
-    skill_type: 'knowledge',
+    mode: params.mode,
+    skill_type: params.mode === 'procedure' ? 'procedural' : 'knowledge',
     outcome: '',
     risk_level: 'medium',
     triggers: [],
@@ -449,7 +490,9 @@ function generateAutoSkillMd(params: { engramId: string; title: string; sourceCu
     time_estimate: '10-15 minutes',
     prerequisites: [],
     auto_extracted: true,
-    source_customer_page: params.sourceCustomerId,
+    ...(params.sourceInfo.type === 'internal'
+      ? { source_internal_doc: params.sourceInfo.id }
+      : { source_customer_page: params.sourceInfo.id }),
   };
 
   return (

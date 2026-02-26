@@ -83,6 +83,15 @@ export interface AgentProfile {
   stopConditions?: string[];
 }
 
+export type AgentSkillMode = 'procedure' | 'knowledge';
+
+export interface AgentEngramModeSuggestion {
+  engramId: string;
+  label?: string;
+  mode: AgentSkillMode;
+  rationale?: string;
+}
+
 export interface EngramFormData {
   contentType: ContentType;
   title: string;
@@ -97,6 +106,7 @@ export interface EngramFormData {
   rawContent?: string;
   aiAnalysis?: any;
   agentProfile?: AgentProfile;
+  agentEngramModes?: AgentEngramModeSuggestion[];
   agentExtraction?: {
     concepts: AgentExtractionConcept[];
     lessons: AgentExtractionLesson[];

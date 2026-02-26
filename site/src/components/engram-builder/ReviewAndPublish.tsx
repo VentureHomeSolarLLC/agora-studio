@@ -74,6 +74,43 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
     }
   } else if (contentType === 'internal') {
     files.push({ name: 'Internal doc', path: 'concepts/[id]/_index.md' });
+
+    const conceptCount = data.agentExtraction?.concepts?.filter((c) => c.include).length || 0;
+    const lessonCount = data.agentExtraction?.lessons?.filter((l) => l.include).length || 0;
+    const mergeConcepts = data.agentExtraction?.concepts?.filter((c) => c.mergeTargetPath) || [];
+    const mergeLessons = data.agentExtraction?.lessons?.filter((l) => l.mergeTargetPath) || [];
+
+    if (conceptCount > 0 || lessonCount > 0) {
+      const grouped: Record<string, { label: string; concepts: number; lessons: number }> = {};
+      data.agentExtraction?.concepts?.filter((c) => c.include).forEach((concept) => {
+        const label = concept.forEngram || data.title || 'general';
+        const key = toSlug(label);
+        grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
+        grouped[key].concepts += 1;
+      });
+      data.agentExtraction?.lessons?.filter((l) => l.include).forEach((lesson) => {
+        const label = lesson.forEngram || data.title || 'general';
+        const key = toSlug(label);
+        grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
+        grouped[key].lessons += 1;
+      });
+
+      Object.entries(grouped).forEach(([slug, group]) => {
+        const parts = [];
+        if (group.concepts > 0) parts.push(`${group.concepts} concept${group.concepts > 1 ? 's' : ''}`);
+        if (group.lessons > 0) parts.push(`${group.lessons} lesson${group.lessons > 1 ? 's' : ''}`);
+        autoFiles.push(`${group.label} → engrams-v2/${slug} (${parts.join(', ')})`);
+      });
+    }
+
+    if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
+      mergeConcepts.forEach((concept) => {
+        mergeFiles.push(`Append concept to ${concept.mergeTargetPath} (${concept.mergeTargetTitle || 'existing concept'})`);
+      });
+      mergeLessons.forEach((lesson) => {
+        mergeFiles.push(`Append lesson to ${lesson.mergeTargetPath} (${lesson.mergeTargetTitle || 'existing lesson'})`);
+      });
+    }
   } else {
     files.push({ name: 'Engram index', path: 'engrams-v2/[id]/_index.md' });
     files.push({ name: 'Skill procedure', path: 'engrams-v2/[id]/SKILL.md' });
