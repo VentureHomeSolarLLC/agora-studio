@@ -130,7 +130,119 @@ ${data.rawContent || ''}
 `;
 }
 
-// ... keep other generator functions the same ...
+function generateConceptMd(data: EngramFormData, id: string): string {
+  const frontmatter = {
+    id,
+    title: data.title,
+    description: data.description || '',
+    category: data.category,
+    tags: data.tags || [],
+    audience: data.audience || ['internal'],
+    content_type: 'concept',
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+  };
+
+  return `---
+${yaml.dump(frontmatter)}---
+# ${data.title}
+
+${data.description || ''}
+
+${data.rawContent || ''}
+`;
+}
+
+function generateIndexMd(data: EngramFormData, engramId: string): string {
+  const frontmatter = {
+    id: engramId,
+    title: data.title,
+    description: data.description || '',
+    category: data.category,
+    tags: data.tags || [],
+    audience: data.audience || ['agent'],
+    content_type: 'engram',
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    version: '1.0',
+  };
+
+  return `---
+${yaml.dump(frontmatter)}---
+# ${data.title}
+
+${data.description || ''}
+
+## SKILL
+File: \\`SKILL.md\\`
+Core procedure for this engram.
+
+## CONCEPTS
+${data.concepts?.map(c => `- [${slugify(c.title)}](concepts/${slugify(c.title)}.md) — ${c.title}`).join('\\n') || '- No concepts yet'}
+
+## LESSONS
+${data.lessons?.map(l => `- [${l.date || '2024-01-01'}-${slugify(l.title)}](lessons/${l.date || '2024-01-01'}-${slugify(l.title)}.md) — ${l.title}`).join('\\n') || '- No lessons yet'}
+`;
+}
+
+function generateSkillMd(data: EngramFormData, engramId: string): string {
+  const frontmatter = {
+    engram_id: engramId,
+    type: 'skill',
+    difficulty: data.skill.difficulty || 'intermediate',
+    time_estimate: data.skill.time_estimate || '15-20 minutes',
+    prerequisites: data.skill.prerequisites || [],
+  };
+
+  const steps = data.skill.steps?.map((step, index) => {
+    let text = `## Step ${index + 1}: ${step.title}\\n\\n${step.content}`;
+    if (step.type === 'checkbox') {
+      text += '\\n\\n- [ ] Complete this step';
+    }
+    return text;
+  }).join('\\n\\n') || '';
+
+  return `---
+${yaml.dump(frontmatter)}---
+# ${data.title}
+
+${steps}
+`;
+}
+
+function generateConceptFileMd(concept: any, engramId: string): string {
+  const frontmatter = {
+    engram_id: engramId,
+    concept_id: slugify(concept.title),
+    title: concept.title,
+    type: 'concept',
+    tags: concept.tags || [],
+  };
+
+  return `---
+${yaml.dump(frontmatter)}---
+# ${concept.title}
+
+${concept.content}
+`;
+}
+
+function generateLessonMd(lesson: any, engramId: string): string {
+  const frontmatter = {
+    engram_id: engramId,
+    lesson_id: `${lesson.date || '2024-01-01'}-${slugify(lesson.title)}`,
+    date: lesson.date || '2024-01-01',
+    author: lesson.author || 'rex@venturehome.com',
+    severity: lesson.severity || 'medium',
+  };
+
+  return `---
+${yaml.dump(frontmatter)}---
+# ${lesson.title}
+
+${lesson.content}
+`;
+}
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
