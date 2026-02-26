@@ -13,17 +13,20 @@ interface AIAnalysisReviewProps {
 
 export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnalyzing }: AIAnalysisReviewProps) {
   const analysis = data.aiAnalysis;
+  const duplicateCheck = data.duplicateCheck;
+  const extraction = data.agentExtraction;
   const [editedContent, setEditedContent] = useState('');
   const [addedSections, setAddedSections] = useState<string[]>([]);
   const [versionLocked, setVersionLocked] = useState(false);
   const [showAppliedToast, setShowAppliedToast] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
+  const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
   useEffect(() => {
-    if (analysis?.beforeAfter?.after && !editedContent) {
+    if (analysis?.beforeAfter?.after) {
       setEditedContent(analysis.beforeAfter.after);
     }
-  }, [analysis]);
+  }, [analysis?.beforeAfter?.after]);
 
   if (isAnalyzing) {
     return (
@@ -74,6 +77,115 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     }
   };
 
+  const handleReanalyze = () => {
+    setVersionLocked(false);
+    setAddedSections([]);
+    setExpandedSections([]);
+    setShowAppliedToast(false);
+    setEditedContent('');
+    onAnalyze();
+  };
+
+  const updateExtraction = (updates: Partial<NonNullable<EngramFormData['agentExtraction']>>) => {
+    onChange({
+      agentExtraction: {
+        concepts: extraction?.concepts || [],
+        lessons: extraction?.lessons || [],
+        ...updates,
+      },
+    });
+  };
+
+  const setConceptInclude = (index: number, include: boolean) => {
+    if (!extraction) return;
+    if (extraction.concepts[index]?.duplicate?.similar) return;
+    const concepts = [...extraction.concepts];
+    concepts[index] = { ...concepts[index], include };
+    updateExtraction({ concepts });
+  };
+
+  const setLessonInclude = (index: number, include: boolean) => {
+    if (!extraction) return;
+    if (extraction.lessons[index]?.duplicate?.similar) return;
+    const lessons = [...extraction.lessons];
+    lessons[index] = { ...lessons[index], include };
+    updateExtraction({ lessons });
+  };
+
+  const setConceptMerge = (index: number, path: string, title: string, type: string) => {
+    if (!extraction) return;
+    const concepts = [...extraction.concepts];
+    concepts[index] = {
+      ...concepts[index],
+      include: false,
+      mergeTargetPath: path || undefined,
+      mergeTargetTitle: title || undefined,
+      mergeTargetType: type || undefined,
+    };
+    updateExtraction({ concepts });
+  };
+
+  const setLessonMerge = (index: number, path: string, title: string, type: string) => {
+    if (!extraction) return;
+    const lessons = [...extraction.lessons];
+    lessons[index] = {
+      ...lessons[index],
+      include: false,
+      mergeTargetPath: path || undefined,
+      mergeTargetTitle: title || undefined,
+      mergeTargetType: type || undefined,
+    };
+    updateExtraction({ lessons });
+  };
+
+  const setAllExtraction = (include: boolean) => {
+    if (!extraction) return;
+    updateExtraction({
+      concepts: extraction.concepts.map((c) => ({
+        ...c,
+        include: c.duplicate?.similar ? false : include,
+      })),
+      lessons: extraction.lessons.map((l) => ({
+        ...l,
+        include: l.duplicate?.similar ? false : include,
+      })),
+    });
+  };
+
+  const extractionCounts = {
+    concepts: extraction?.concepts?.length || 0,
+    lessons: extraction?.lessons?.length || 0,
+  };
+  const extractionSelected = {
+    concepts: extraction?.concepts?.filter((c) => c.include).length || 0,
+    lessons: extraction?.lessons?.filter((l) => l.include).length || 0,
+  };
+  const extractionMerged = {
+    concepts: extraction?.concepts?.filter((c) => !!c.mergeTargetPath).length || 0,
+    lessons: extraction?.lessons?.filter((l) => !!l.mergeTargetPath).length || 0,
+  };
+  const netNewCounts = {
+    concepts: extraction?.concepts?.filter((c) => !c.duplicate?.similar).length || 0,
+    lessons: extraction?.lessons?.filter((l) => !l.duplicate?.similar).length || 0,
+  };
+  const hasAnyExtraction = extractionCounts.concepts + extractionCounts.lessons > 0;
+  const hasSelectedExtraction =
+    extractionSelected.concepts +
+      extractionSelected.lessons +
+      extractionMerged.concepts +
+      extractionMerged.lessons >
+    0;
+  const hasNetNewCandidates = netNewCounts.concepts + netNewCounts.lessons > 0;
+  const hasNoNetNewAgentContent = extraction && !hasNetNewCandidates;
+  const repoLinkForPath = (path: string) =>
+    `https://github.com/VentureHomeSolarLLC/agora-studio/blob/main/${path}`;
+  const resolveViewUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/')) return `${baseOrigin}${url}`;
+    return url;
+  };
+
   const getReadability = () => {
     const score = analysis.readability?.score;
     if (typeof score === 'number') {
@@ -108,7 +220,11 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
             '✨ AI Analysis Complete'
           )}
         </h2>
-        <button onClick={onAnalyze} className="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">
+        <button
+          onClick={handleReanalyze}
+          disabled={isAnalyzing}
+          className="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50"
+        >
           Re-analyze
         </button>
       </div>
@@ -122,6 +238,283 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
             </div>
             <span className="text-sm font-medium whitespace-nowrap">{readability.score.toFixed(1)}/10</span>
           </div>
+        </div>
+      )}
+
+      {duplicateCheck && (
+        <div className={`rounded-lg p-4 border ${duplicateCheck.similar ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
+          <h3 className={`font-medium mb-2 ${duplicateCheck.similar ? 'text-yellow-900' : 'text-green-900'}`}>
+            {duplicateCheck.similar ? 'Potential duplicates found' : 'No close duplicates detected'}
+          </h3>
+          {duplicateCheck.matches.length === 0 ? (
+            <p className={`text-sm ${duplicateCheck.similar ? 'text-yellow-800' : 'text-green-800'}`}>
+              We didn&apos;t find anything very similar in the library.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {duplicateCheck.matches.map((match, i) => (
+                <div key={`${match.path}-${i}`} className="bg-white border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-gray-900">{match.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {match.type === 'customer-page'
+                          ? 'Customer page'
+                          : match.type === 'concept'
+                          ? 'Concept'
+                          : match.type === 'lesson'
+                          ? 'Lesson'
+                          : match.type === 'skill'
+                          ? 'Skill'
+                          : match.type === 'engram-v2'
+                          ? 'Engram (v2)'
+                          : 'Engram'}{' '}
+                        • {match.path}
+                      </p>
+                    <a
+                      href={resolveViewUrl(match.viewUrl) || repoLinkForPath(match.path)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+                    >
+                      Open in new tab
+                    </a>
+                    {match.viewUrl && resolveViewUrl(match.viewUrl) !== repoLinkForPath(match.path) && (
+                      <a
+                        href={repoLinkForPath(match.path)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+                      >
+                        View source file
+                      </a>
+                    )}
+                  </div>
+                  <div className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    {Math.round(match.score * 100)}% similar
+                  </div>
+                </div>
+              ))}
+              <p className={`text-xs ${duplicateCheck.similar ? 'text-yellow-700' : 'text-green-700'}`}>
+                If this overlaps heavily, consider updating the existing content instead of publishing a new page.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {data.contentType === 'customer' && extraction && (extraction.concepts.length > 0 || extraction.lessons.length > 0) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div>
+              <h3 className="font-medium text-blue-900">AI Agent Extraction</h3>
+              <p className="text-sm text-blue-800">
+                Select which items should become draft Engram files. Selected items are saved under
+                <span className="font-medium"> engrams-v2/&lt;engram&gt; </span>
+                and missing Engrams are created automatically.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAllExtraction(true)}
+                className="text-xs px-3 py-1 rounded-full bg-white border border-blue-200 text-blue-800 hover:bg-blue-100"
+              >
+                Select all
+              </button>
+              <button
+                onClick={() => setAllExtraction(false)}
+                className="text-xs px-3 py-1 rounded-full bg-white border border-blue-200 text-blue-800 hover:bg-blue-100"
+              >
+                Deselect all
+              </button>
+            </div>
+          </div>
+
+          {extraction.concepts.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Concepts</p>
+              {extraction.concepts.map((concept, i) => {
+                const isDuplicate = concept.duplicate?.similar;
+                const topMatch = concept.duplicate?.matches?.[0];
+                const mergeOptions =
+                  concept.duplicate?.matches?.filter((match: any) => match.type === 'concept') || [];
+                return (
+                <div key={`${concept.title}-${i}`} className="bg-white border border-blue-100 rounded-lg p-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-gray-900">{concept.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        For Engram: {concept.forEngram || 'general'}
+                      </p>
+                      {isDuplicate && topMatch && (
+                        <div className="text-xs text-amber-700 mt-2">
+                          Likely duplicate of <span className="font-medium">{topMatch.title}</span> ({Math.round(topMatch.score * 100)}%).
+                          <div className="mt-1">
+                            <a
+                              href={resolveViewUrl(topMatch.viewUrl) || repoLinkForPath(topMatch.path)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline"
+                            >
+                              Open existing
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={concept.include}
+                        disabled={isDuplicate}
+                        onChange={(e) => setConceptInclude(i, e.target.checked)}
+                      />
+                      {isDuplicate ? 'Duplicate' : 'Include'}
+                    </label>
+                  </div>
+                  {isDuplicate && mergeOptions.length > 0 && (
+                    <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs font-medium text-amber-900 mb-2">Merge into existing concept</p>
+                      <select
+                        value={concept.mergeTargetPath || ''}
+                        onChange={(e) => {
+                          const selected = mergeOptions.find((m: any) => m.path === e.target.value);
+                          setConceptMerge(i, e.target.value, selected?.title || '', selected?.type || '');
+                        }}
+                        className="w-full text-sm border border-amber-200 rounded px-2 py-2 bg-white"
+                      >
+                        <option value="">Do not merge</option>
+                        {mergeOptions.map((match: any, idx: number) => (
+                          <option key={`${match.path}-${idx}`} value={match.path}>
+                            {match.title} ({Math.round(match.score * 100)}%)
+                          </option>
+                        ))}
+                      </select>
+                      {concept.mergeTargetPath && (
+                        <p className="text-xs text-amber-800 mt-2">
+                          This will append the new context to <span className="font-medium">{concept.mergeTargetTitle}</span>.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {isDuplicate && mergeOptions.length === 0 && (
+                    <p className="text-xs text-amber-700 mt-3">
+                      Closest matches are not concept files. Add any new context manually to the relevant file.
+                    </p>
+                  )}
+                  <details className="mt-3">
+                    <summary className="text-xs text-blue-700 cursor-pointer">Preview content</summary>
+                    <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap border-t border-blue-100 pt-2">
+                      {concept.content}
+                    </div>
+                  </details>
+                </div>
+              )})}
+            </div>
+          )}
+
+          {extraction.lessons.length > 0 && (
+            <div className="space-y-3 mt-5">
+              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Lessons</p>
+              {extraction.lessons.map((lesson, i) => {
+                const isDuplicate = lesson.duplicate?.similar;
+                const topMatch = lesson.duplicate?.matches?.[0];
+                const mergeOptions =
+                  lesson.duplicate?.matches?.filter((match: any) => match.type === 'lesson') || [];
+                return (
+                <div key={`${lesson.title}-${i}`} className="bg-white border border-blue-100 rounded-lg p-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-gray-900">{lesson.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        For Engram: {lesson.forEngram || 'general'}
+                      </p>
+                      {isDuplicate && topMatch && (
+                        <div className="text-xs text-amber-700 mt-2">
+                          Likely duplicate of <span className="font-medium">{topMatch.title}</span> ({Math.round(topMatch.score * 100)}%).
+                          <div className="mt-1">
+                            <a
+                              href={resolveViewUrl(topMatch.viewUrl) || repoLinkForPath(topMatch.path)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline"
+                            >
+                              Open existing
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={lesson.include}
+                        disabled={isDuplicate}
+                        onChange={(e) => setLessonInclude(i, e.target.checked)}
+                      />
+                      {isDuplicate ? 'Duplicate' : 'Include'}
+                    </label>
+                  </div>
+                  {isDuplicate && mergeOptions.length > 0 && (
+                    <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs font-medium text-amber-900 mb-2">Merge into existing lesson</p>
+                      <select
+                        value={lesson.mergeTargetPath || ''}
+                        onChange={(e) => {
+                          const selected = mergeOptions.find((m: any) => m.path === e.target.value);
+                          setLessonMerge(i, e.target.value, selected?.title || '', selected?.type || '');
+                        }}
+                        className="w-full text-sm border border-amber-200 rounded px-2 py-2 bg-white"
+                      >
+                        <option value="">Do not merge</option>
+                        {mergeOptions.map((match: any, idx: number) => (
+                          <option key={`${match.path}-${idx}`} value={match.path}>
+                            {match.title} ({Math.round(match.score * 100)}%)
+                          </option>
+                        ))}
+                      </select>
+                      {lesson.mergeTargetPath && (
+                        <p className="text-xs text-amber-800 mt-2">
+                          This will append the new context to <span className="font-medium">{lesson.mergeTargetTitle}</span>.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {isDuplicate && mergeOptions.length === 0 && (
+                    <p className="text-xs text-amber-700 mt-3">
+                      Closest matches are not lesson files. Add any new context manually to the relevant file.
+                    </p>
+                  )}
+                  <details className="mt-3">
+                    <summary className="text-xs text-blue-700 cursor-pointer">Preview lesson</summary>
+                    <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap border-t border-blue-100 pt-2">
+                      <p className="font-medium text-gray-800">Scenario</p>
+                      <p className="mt-1">{lesson.scenario}</p>
+                      <p className="font-medium text-gray-800 mt-3">Solution</p>
+                      <p className="mt-1">{lesson.solution}</p>
+                    </div>
+                  </details>
+                </div>
+              )})}
+            </div>
+          )}
+        </div>
+      )}
+
+      {data.contentType === 'customer' && extraction && hasNoNetNewAgentContent && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <h3 className="font-medium text-green-900 mb-1">No net-new agent content detected</h3>
+          <p className="text-sm text-green-800">
+            {hasAnyExtraction
+              ? 'All suggested items look duplicative of existing knowledge. Use the merge options above to add context to the existing files.'
+              : 'This reads as clean, customer-only guidance — nothing new for agent training surfaced.'}
+          </p>
+        </div>
+      )}
+
+      {data.contentType === 'customer' && extraction && hasNetNewCandidates && !hasSelectedExtraction && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="font-medium text-blue-900 mb-1">No agent-training items selected yet</h3>
+          <p className="text-sm text-blue-800">Select net-new items above to create draft Engram files, or merge duplicates into existing files.</p>
         </div>
       )}
 

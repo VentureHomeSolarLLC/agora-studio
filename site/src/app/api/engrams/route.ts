@@ -12,15 +12,16 @@ export async function POST(request: NextRequest) {
     }
 
     const engram = transformToEngram(formData);
-    // Use outputPath from config (customer-pages, concepts, or engrams-v2)
-    const basePath = `${engram.outputPath}/${engram.id}`;
-    
-    const changes: FileChange[] = Object.entries(engram.files).map(([filename, content]) => ({
-      path: `${basePath}/${filename}`,
+    const changes: FileChange[] = Object.entries(engram.files).map(([filePath, content]) => ({
+      path: filePath,
       content,
     }));
 
     const result = await createMultipleFiles(changes, `Create ${formData.contentType}: ${formData.title}`);
+
+    const previewUrl = formData.contentType === 'customer'
+      ? `https://help.venturehome.com/article/${engram.id}`
+      : `https://help.venturehome.com/${engram.outputPath}/${engram.id}`;
 
     return NextResponse.json({
       success: true,
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       output_path: engram.outputPath,
       commit_sha: result.sha,
       commit_url: result.html_url,
-      preview_url: `https://help.venturehome.com/${engram.outputPath}/${engram.id}`,
+      preview_url: previewUrl,
       files_created: result.paths,
     });
 

@@ -20,6 +20,49 @@ export interface LessonInput {
   author?: string;
 }
 
+export interface AgentExtractionConcept {
+  title: string;
+  content: string;
+  forEngram?: string;
+  include: boolean;
+  mergeTargetPath?: string;
+  mergeTargetTitle?: string;
+  mergeTargetType?: string;
+  duplicate?: {
+    similar: boolean;
+    topScore: number;
+    matches: {
+      title: string;
+      type: string;
+      score: number;
+      path: string;
+      viewUrl?: string;
+    }[];
+  };
+}
+
+export interface AgentExtractionLesson {
+  title: string;
+  scenario: string;
+  solution: string;
+  forEngram?: string;
+  include: boolean;
+  mergeTargetPath?: string;
+  mergeTargetTitle?: string;
+  mergeTargetType?: string;
+  duplicate?: {
+    similar: boolean;
+    topScore: number;
+    matches: {
+      title: string;
+      type: string;
+      score: number;
+      path: string;
+      viewUrl?: string;
+    }[];
+  };
+}
+
 export interface SkillInput {
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   time_estimate?: string;
@@ -40,6 +83,22 @@ export interface EngramFormData {
   lessons?: LessonInput[];
   rawContent?: string;
   aiAnalysis?: any;
+  agentExtraction?: {
+    concepts: AgentExtractionConcept[];
+    lessons: AgentExtractionLesson[];
+  } | null;
+  duplicateResolutionConfirmed?: boolean;
+  duplicateCheck?: {
+    similar: boolean;
+    topScore: number;
+    matches: {
+      title: string;
+      type: string;
+      score: number;
+      path: string;
+      viewUrl?: string;
+    }[];
+  } | null;
 }
 
 export const CATEGORIES = [
