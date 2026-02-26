@@ -19,7 +19,6 @@ export default function NewEngramPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [duplicateCheck, setDuplicateCheck] = useState<any>(null);
   
   const [formData, setFormData] = useState<EngramFormData>({
     contentType: 'customer',
@@ -43,7 +42,7 @@ export default function NewEngramPage() {
 
   const updateFormData = (updates: Partial<EngramFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
-  };
+n  };
 
   const handleContentTypeChange = (type: ContentType) => {
     const config = CONTENT_TYPE_CONFIG[type];
@@ -60,16 +59,6 @@ export default function NewEngramPage() {
     setAnalysisError(null);
 
     try {
-      // First check for duplicates
-      const dupResponse = await fetch('/api/search/duplicates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: formData.rawContent, title: formData.title }),
-      });
-      const dupData = await dupResponse.json();
-      setDuplicateCheck(dupData);
-
-      // Then analyze
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,6 +69,11 @@ export default function NewEngramPage() {
         }),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const data = await response.json();
       
       if (!data.success) {
@@ -88,8 +82,6 @@ export default function NewEngramPage() {
 
       const analysis = data.analysis;
       const currentTags = formData.tags || [];
-      
-      // Auto-add suggested tags
       const newTags = analysis.suggestedTags?.filter((tag: string) => !currentTags.includes(tag)) || [];
       
       if (formData.contentType === 'agent' && analysis.steps) {
@@ -123,6 +115,7 @@ export default function NewEngramPage() {
       }
 
     } catch (error: any) {
+      console.error('Analysis error:', error);
       setAnalysisError(error.message);
     } finally {
       setIsAnalyzing(false);
@@ -142,7 +135,7 @@ export default function NewEngramPage() {
 
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || data.errors?.join(', ') || 'Failed to create');
+        throw new Error(data.error || 'Failed to create');
       }
 
       setSubmitResult(data);
@@ -161,54 +154,24 @@ export default function NewEngramPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold mb-4">🎉 Thank You for Contributing!</h1>
-        <p className="text-gray-600 mb-6">Your content has been added to the Agora Library and will help train AI agents.</p>
-        <div className="space-y-2 text-sm text-left bg-gray-50 p-4 rounded-lg mb-6">
-          <p><strong>Type:</strong> {CONTENT_TYPE_CONFIG[formData.contentType].label}</p>
-          <p><strong>ID:</strong> {submitResult.engram_id}</p>
-          <p><strong>Files Created:</strong> {submitResult.files_created?.length}</p>
-          <p><strong>Location:</strong> {submitResult.output_path}</p>
-        </div>
-        <div className="flex gap-4 justify-center">
-          <a href="/admin/engrams" className="bg-gray-900 text-white px-6 py-3 rounded-lg">View Library</a>
-          <button onClick={() => window.location.reload()} className="bg-[#F7FF96] text-gray-900 px-6 py-3 rounded-lg">Add More Content</button>
-        </div>
+        <h1 className="text-2xl font-bold mb-4">🎉 Thank You!</h1>
+        <p>Your content has been added to the Agora Library.</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-8">Create New Content</h1>
+      <h1 className="text-2xl font-bold mb-8\">Create New Content</h1>
       <StepIndicator steps={STEPS} current={step} />
       
-      {submitError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6">{submitError}</div>}
-      {analysisError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6">Analysis failed: {analysisError}</div>}
+      {submitError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6\">{submitError}</div>}
+      {analysisError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6\">{analysisError}</div>}
       
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        {step === 1 && (
-          <ContentTypeSelector 
-            selected={formData.contentType} 
-            onChange={handleContentTypeChange} 
-          />
-        )}
-        
-        {step === 2 && (
-          <BasicInfoForm 
-            data={formData} 
-            onChange={updateFormData}
-            contentType={formData.contentType}
-          />
-        )}
-        
-        {step === 3 && (
-          <ContentInputForm
-            data={formData}
-            onChange={updateFormData}
-            contentType={formData.contentType}
-          />
-        )}
-        
+        {step === 1 && <ContentTypeSelector selected={formData.contentType} onChange={handleContentTypeChange} />}
+        {step === 2 && <BasicInfoForm data={formData} onChange={updateFormData} contentType={formData.contentType} />}
+        {step === 3 && <ContentInputForm data={formData} onChange={updateFormData} contentType={formData.contentType} />}
         {step === 4 && (
           <AIAnalysisReview
             data={formData}
@@ -216,55 +179,16 @@ export default function NewEngramPage() {
             onAnalyze={handleAIAnalysis}
             onContinue={() => setStep(5)}
             isAnalyzing={isAnalyzing}
-            duplicateCheck={duplicateCheck}
           />
         )}
-        
-        {step === 5 && (
-          <MetadataForm
-            data={formData}
-            onChange={updateFormData}
-          />
-        )}
-        
-        {step === 6 && (
-          <ReviewAndPublish
-            data={formData}
-            onPublish={handlePublish}
-            isSubmitting={isSubmitting}
-            contentType={formData.contentType}
-          />
-        )}
+        {step === 5 && <MetadataForm data={formData} onChange={updateFormData} />}
+        {step === 6 && <ReviewAndPublish data={formData} onPublish={handlePublish} isSubmitting={isSubmitting} contentType={formData.contentType} />}
       </div>
 
       <div className="flex justify-between mt-6">
-        <button
-          onClick={() => setStep(step - 1)}
-          disabled={step === 1}
-          className="px-6 py-3 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30"
-        >
-          Previous
-        </button>
-        
-        {step === 3 && (
-          <button
-            onClick={() => setStep(4)}
-            disabled={!formData.rawContent || !formData.title}
-            className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 disabled:opacity-50"
-          >
-            Analyze with AI
-          </button>
-        )}
-        
-        {step !== 3 && step !== 4 && step !== 6 && (
-          <button
-            onClick={() => setStep(step + 1)}
-            disabled={step === 1 && !formData.contentType}
-            className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 disabled:opacity-50"
-          >
-            Next
-          </button>
-        )}
+        <button onClick={() => setStep(step - 1)} disabled={step === 1} className="px-6 py-3 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30">Previous</button>
+        {step === 3 && <button onClick={() => setStep(4)} disabled={!formData.rawContent || !formData.title} className="bg-gray-900 text-white px-6 py-3 rounded-lg">Analyze</button>}
+        {step !== 3 && step !== 4 && step !== 6 && <button onClick={() => setStep(step + 1)} className="bg-gray-900 text-white px-6 py-3 rounded-lg">Next</button>}
       </div>
     </div>
   );
