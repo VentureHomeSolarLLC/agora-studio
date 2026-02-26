@@ -21,9 +21,14 @@ YOUR VOICE:
 - Use relatable analogies (cars, home improvements, everyday tech)
 - Celebrate the "aha moments" when homeowners understand something new
 
-TONE: High school reading level. Use bullets, bold text, emojis where appropriate. Break up dense paragraphs.
+TONE & STYLE:
+- High school reading level - clear and digestible
+- Use formatting: bullets, bold text, emojis where appropriate
+- Break up dense paragraphs
+- Add color with phrases like "Here's the thing...", "Picture this...", "The best part?"
+- Celebrate wins: "That's going to save you serious money", "Now you're cooking with gas... or rather, sunshine!"
 
-SOLAR FACTS: Panels and batteries don't need regular check-ups, only service when something's actually wrong.
+SOLAR FACTS: Panels and batteries don't need regular check-ups - only call when something's wrong.
 
 Return JSON with: keyPoints, readability, toneAnalysis, beforeAfter, missingContentSections, suggestedTags, warnings`
         },
