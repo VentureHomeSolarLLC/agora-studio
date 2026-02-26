@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`Analyzing ${contentType} content: "${title?.substring(0, 50)}..."`);
+
     let analysis;
     
     switch (contentType) {
@@ -35,6 +37,8 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    console.log('Analysis complete:', Object.keys(analysis));
+
     return NextResponse.json({
       success: true,
       contentType,
@@ -51,160 +55,100 @@ export async function POST(request: NextRequest) {
 }
 
 async function analyzeCustomerContent(content: string, title: string) {
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4-turbo-preview',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an expert residential solar consultant with 10+ years of experience helping homeowners understand solar. Your job is to transform rough notes into polished, professional customer content.
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert residential solar consultant. Transform rough notes into polished customer content.
 
-TONE & STYLE REQUIREMENTS:
-- Write as a knowledgeable solar expert who is friendly and approachable
-- Target reading level: HIGH SCHOOL 
-- Use clear, everyday language - no industry jargon without explanation
-- Be upbeat and encouraging but professional
-- Use formatting aggressively: bullets, numbered lists, bold text, short paragraphs
-- Add punctuation where needed to improve clarity
-- Break up long sentences and dense paragraphs
-
-IMPORTANT SOLAR FACTS TO INCLUDE:
-- Solar panels and batteries do NOT need regular check-ups or maintenance "just because"
-- Only schedule service when there is an actual issue or problem
-- Systems are designed to be low-maintenance and self-monitoring
-- Monitoring apps alert homeowners to any issues automatically
-
-YOUR TASK:
-1. Analyze the content for what's missing
-2. Rewrite for high school readability with professional solar expert tone
-3. WRITE THE MISSING SECTIONS - don't just list what's missing, actually write the content
-4. INCLUDE ALL MISSING CONTENT in the final "After" version
-5. The "After" version should be COMPLETE and ready to publish
-
-The "After" version MUST include:
-- Original content (tone-improved)
-- All suggested additions integrated seamlessly
-- Any missing critical information written out fully
+TONE: Friendly, professional solar expert. High school reading level.
+FORMATTING: Use bullets, bold text, short paragraphs aggressively.
+SOLAR FACT: Panels and batteries don't need regular check-ups, only service when there's an issue.
 
 Return JSON:
 {
-  "keyPoints": ["3-5 main takeaways"],
-  "readability": {
-    "gradeLevel": "high school",
-    "score": 1-10,
-    "issues": ["what needs fixing"]
-  },
-  "toneAnalysis": {
-    "current": "description of current tone",
-    "improved": "description of improved tone",
-    "suggestedEdit": "FULL REWRITE with better tone"
-  },
-  "suggestedAdditions": [
-    {
-      "section": "Name of section to add",
-      "content": "The actual written content - write it fully",
-      "placement": "where it goes"
-    }
-  ],
-  "missingContent": ["brief list of what was missing"],
-  "beforeAfter": {
-    "before": "original content",
-    "after": "COMPLETE FINAL VERSION with ALL improvements AND all missing content written out and integrated"
-  },
-  "suggestedTags": ["relevant tags"],
-  "warnings": ["important caveats"]
+  "keyPoints": ["3-5 takeaways"],
+  "readability": {"gradeLevel": "high school", "score": 1-10},
+  "beforeAfter": {"before": "original", "after": "complete improved version"},
+  "suggestedTags": ["..."]
 }`
-      },
-      {
-        role: 'user',
-        content: `Title: ${title}\n\nContent:\n${content}`
-      }
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.4,
-  });
+        },
+        {
+          role: 'user',
+          content: `Title: ${title}\n\nContent:\n${content}`
+        }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.4,
+      max_tokens: 4000,
+    });
 
-  return JSON.parse(response.choices[0].message.content || '{}');
+    const result = JSON.parse(response.choices[0].message.content || '{}');
+    
+    // Ensure required fields exist
+    return {
+      keyPoints: result.keyPoints || [],
+      readability: result.readability || { gradeLevel: 'high school', score: 5 },
+      beforeAfter: result.beforeAfter || { before: content, after: content },
+      suggestedTags: result.suggestedTags || [],
+      ...result
+    };
+  } catch (error) {
+    console.error('Customer analysis error:', error);
+    throw error;
+  }
 }
 
 async function analyzeInternalContent(content: string, title: string) {
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4-turbo-preview',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an expert at analyzing internal business documentation. Extract structure and identify gaps.
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        {
+          role: 'system',
+          content: `Analyze internal documentation. Return JSON with sections, technicalDetails, edgeCases, missingContent, suggestedTags.`
+        },
+        {
+          role: 'user',
+          content: `Title: ${title}\n\nContent:\n${content}`
+        }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+      max_tokens: 4000,
+    });
 
-ANALYZE FOR:
-1. **Sections** - Break content into logical sections with importance levels
-2. **Technical Details** - Extract key technical information
-3. **Edge Cases** - What scenarios aren't covered?
-4. **Missing Content** - What would a new employee still not know?
-5. **Related Topics** - What other docs should this link to?
-
-Return JSON:
-{
-  "sections": [{"title": "...", "content": "...", "importance": "high|medium|low"}],
-  "technicalDetails": ["..."],
-  "edgeCases": ["..."],
-  "missingContent": ["..."],
-  "relatedTopics": ["..."],
-  "suggestedTags": ["..."],
-  "lessons": [{"title": "...", "scenario": "...", "solution": "..."}]
-}`
-      },
-      {
-        role: 'user',
-        content: `Title: ${title}\n\nContent:\n${content}`
-      }
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.3,
-  });
-
-  return JSON.parse(response.choices[0].message.content || '{}');
+    return JSON.parse(response.choices[0].message.content || '{}');
+  } catch (error) {
+    console.error('Internal analysis error:', error);
+    throw error;
+  }
 }
 
 async function analyzeAgentInstructions(content: string, title: string) {
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4-turbo-preview',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an expert at creating AI agent instructions. Convert human-written procedures into AI-optimized instructions.
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        {
+          role: 'system',
+          content: `Convert procedures to AI-optimized instructions. Return JSON with steps, concepts, lessons, searchability score, suggestedEdit.`
+        },
+        {
+          role: 'user',
+          content: `Title: ${title}\n\nContent:\n${content}`
+        }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      max_tokens: 4000,
+    });
 
-AGORA/ENGRAM ARCHITECTURE:
-- SKILL.md = Core step-by-step procedure
-- concepts/ = Reference material, conditional logic
-- lessons/ = Edge cases, exceptions
-
-YOUR JOB:
-1. Aggressively edit for AI consumption - cut fluff, use imperative voice
-2. Extract clear STEPS for SKILL.md
-3. Extract CONDITIONS/REFERENCE for concepts/
-4. Extract EDGE CASES for lessons/
-5. Optimize for context window efficiency
-
-Return JSON:
-{
-  "steps": [{"title": "...", "content": "...", "type": "text|checkbox|decision"}],
-  "prerequisites": ["..."],
-  "concepts": [{"title": "...", "content": "..."}],
-  "lessons": [{"title": "...", "scenario": "...", "handling": "..."}],
-  "risks": ["..."],
-  "missingContent": ["..."],
-  "searchability": {"score": 1-10, "improvements": ["..."]},
-  "suggestedTags": ["..."],
-  "suggestedEdit": "aggressively rewritten version"
-}`
-      },
-      {
-        role: 'user',
-        content: `Title: ${title}\n\nContent:\n${content}`
-      }
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.2,
-  });
-
-  return JSON.parse(response.choices[0].message.content || '{}');
+    return JSON.parse(response.choices[0].message.content || '{}');
+  } catch (error) {
+    console.error('Agent analysis error:', error);
+    throw error;
+  }
 }
