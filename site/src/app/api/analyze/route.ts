@@ -10,14 +10,13 @@ export async function POST(request: NextRequest) {
     const { content, contentType, title } = await request.json();
 
     if (!content || !contentType) {
-      return NextResponse.json(
-        { error: 'Content and contentType required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
+    // Check for duplicates first
+    const duplicateCheck = await checkForDuplicates(title, content);
+
     let analysis;
-    
     switch (contentType) {
       case 'customer':
         analysis = await analyzeCustomerContent(content, title);
@@ -29,25 +28,32 @@ export async function POST(request: NextRequest) {
         analysis = await analyzeAgentInstructions(content, title);
         break;
       default:
-        return NextResponse.json(
-          { error: 'Invalid contentType' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
       contentType,
       analysis,
+      duplicateCheck,
     });
 
   } catch (error: any) {
-    console.error('Analysis failed:', error);
-    return NextResponse.json(
-      { error: 'Analysis failed', details: error.message },
-      { status: 500 }
-    );
+    console.error('Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+async function checkForDuplicates(title: string, content: string) {
+  // Simple keyword-based check (in production, use embeddings)
+  const keyTerms = title.toLowerCase().split(' ').filter(w => w.length > 3);
+  
+  return {
+    similar: false, // TODO: implement real similarity check
+    matchTitle: null,
+    similarity: 0,
+    viewUrl: null,
+  };
 }
 
 async function analyzeCustomerContent(content: string, title: string) {
@@ -56,20 +62,22 @@ async function analyzeCustomerContent(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: `You are an expert residential solar consultant with 10+ years experience. Transform rough notes into polished customer content.
+        content: `You are a solar expert. Analyze customer content and identify what could be extracted for AI agent training.
 
-TONE: Friendly, professional solar expert. High school reading level.
-FORMATTING: Use bullets, bold text, short paragraphs aggressively.
-SOLAR FACT: Panels and batteries don't need regular check-ups, only service when there's an issue.
+Return JSON with:
+- keyPoints: main takeaways
+- readability: {gradeLevel, score, issues}
+- beforeAfter: {before, after} - show original vs improved
+- missingContentSections: [{sectionTitle, content, placement, whyImportant}]
+- agentTrainingPotential: {
+    hasExtractableContent: boolean,
+    suggestedConcepts: [{title, content, forEngram: string}],
+    suggestedLessons: [{title, scenario, solution, forEngram: string}]
+  }
+- suggestedTags: array
+- warnings: array
 
-Return JSON:
-{
-  "keyPoints": ["3-5 takeaways"],
-  "readability": {"gradeLevel": "high school", "score": 1-10},
-  "beforeAfter": {"before": "original", "after": "complete improved version with formatting"},
-  "toneAnalysis": {"current": "...", "improved": "...", "suggestedEdit": "..."},
-  "suggestedTags": ["...", "..."]
-}`
+IMPORTANT: Solar panels and batteries don't need regular check-ups, only when there's an issue.`
       },
       {
         role: 'user',
@@ -90,7 +98,7 @@ async function analyzeInternalContent(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: `Analyze internal documentation. Return JSON with sections, technicalDetails, edgeCases, missingContent, suggestedTags.`
+        content: 'Analyze internal docs. Return JSON with sections, technicalDetails, edgeCases, missingContent, suggestedTags.'
       },
       {
         role: 'user',
@@ -111,7 +119,7 @@ async function analyzeAgentInstructions(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: `Convert procedures to AI-optimized instructions. Return JSON with steps, concepts, lessons, searchability score, suggestedEdit. Be aggressive about restructuring for AI consumption.`
+        content: 'Convert to AI instructions. Return JSON with steps, concepts, lessons, searchability, suggestedEdit. Be aggressive about restructuring.'
       },
       {
         role: 'user',
