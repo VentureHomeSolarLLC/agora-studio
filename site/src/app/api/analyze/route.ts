@@ -1,43 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  console.log('API /analyze called');
+  
   try {
-    const { content, contentType, title } = await request.json();
-
-    if (!content || !contentType) {
-      return NextResponse.json(
-        { error: 'Content and contentType required' },
-        { status: 400 }
-      );
+    let body;
+    try {
+      body = await request.json();
+      console.log('Body received:', { hasContent: !!body?.content, contentType: body?.contentType });
+    } catch (e) {
+      console.error('Parse error:', e);
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    // Simple mock response for testing
-    const mockAnalysis = {
-      keyPoints: ['Point 1', 'Point 2', 'Point 3'],
-      readability: { 
-        gradeLevel: 'high school', 
-        score: 8,
-        issues: ['Some long sentences']
-      },
-      beforeAfter: {
-        before: content,
-        after: `## ${title}\n\n` + content + '\n\n**Improved with better formatting!**'
-      },
-      suggestedTags: ['solar', 'customer-support', 'billing'],
-      missingContent: ['Could add more detail about next steps']
-    };
+    const { content, contentType, title } = body;
 
-    return NextResponse.json({
+    if (!content || !contentType) {
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+    }
+
+    const response = {
       success: true,
       contentType,
-      analysis: mockAnalysis,
-    });
+      analysis: {
+        keyPoints: ['Point 1', 'Point 2'],
+        readability: { gradeLevel: 'high school', score: 7, issues: [] },
+        beforeAfter: {
+          before: content.substring(0, 50),
+          after: `## ${title}\n\n${content}`
+        },
+        suggestedTags: ['test', 'solar'],
+        missingContent: []
+      }
+    };
+
+    console.log('Response ready');
+    return NextResponse.json(response);
 
   } catch (error: any) {
-    console.error('API Error:', error);
-    return NextResponse.json(
-      { error: 'Server error', details: error.message },
-      { status: 500 }
-    );
+    console.error('Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
