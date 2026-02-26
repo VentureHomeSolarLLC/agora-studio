@@ -19,6 +19,7 @@ export default function NewEngramPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [duplicateCheck, setDuplicateCheck] = useState<any>(null);
   
   const [formData, setFormData] = useState<EngramFormData>({
     contentType: 'customer',
@@ -59,6 +60,16 @@ export default function NewEngramPage() {
     setAnalysisError(null);
 
     try {
+      // First check for duplicates
+      const dupResponse = await fetch('/api/search/duplicates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: formData.rawContent, title: formData.title }),
+      });
+      const dupData = await dupResponse.json();
+      setDuplicateCheck(dupData);
+
+      // Then analyze
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,6 +89,9 @@ export default function NewEngramPage() {
       const analysis = data.analysis;
       const currentTags = formData.tags || [];
       
+      // Auto-add suggested tags
+      const newTags = analysis.suggestedTags?.filter((tag: string) => !currentTags.includes(tag)) || [];
+      
       if (formData.contentType === 'agent' && analysis.steps) {
         updateFormData({
           aiAnalysis: analysis,
@@ -88,13 +102,13 @@ export default function NewEngramPage() {
           },
           concepts: analysis.concepts || [],
           lessons: analysis.lessons || [],
-          tags: [...new Set([...currentTags, ...(analysis.suggestedTags || [])])],
+          tags: [...currentTags, ...newTags],
         });
       } else if (formData.contentType === 'customer') {
         updateFormData({
           aiAnalysis: analysis,
           concepts: analysis.concepts || [],
-          tags: [...new Set([...currentTags, ...(analysis.suggestedTags || [])])],
+          tags: [...currentTags, ...newTags],
         });
       } else if (formData.contentType === 'internal') {
         updateFormData({
@@ -104,13 +118,10 @@ export default function NewEngramPage() {
             content: s.content,
           })) || [],
           lessons: analysis.lessons || [],
-          tags: [...new Set([...currentTags, ...(analysis.suggestedTags || [])])],
+          tags: [...currentTags, ...newTags],
         });
       }
 
-      // DON'T advance to step 5 - stay on step 4 to show results
-      // setStep(5) removed
-      
     } catch (error: any) {
       setAnalysisError(error.message);
     } finally {
@@ -150,17 +161,17 @@ export default function NewEngramPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold mb-4">Content Created!</h1>
+        <h1 className="text-2xl font-bold mb-4">🎉 Thank You for Contributing!</h1>
+        <p className="text-gray-600 mb-6">Your content has been added to the Agora Library and will help train AI agents.</p>
         <div className="space-y-2 text-sm text-left bg-gray-50 p-4 rounded-lg mb-6">
           <p><strong>Type:</strong> {CONTENT_TYPE_CONFIG[formData.contentType].label}</p>
           <p><strong>ID:</strong> {submitResult.engram_id}</p>
-          <p><strong>Files:</strong> {submitResult.files_created?.length}</p>
+          <p><strong>Files Created:</strong> {submitResult.files_created?.length}</p>
           <p><strong>Location:</strong> {submitResult.output_path}</p>
-          <p><strong>Commit:</strong> <a href={submitResult.commit_url} target="_blank" className="text-blue-600 hover:underline">View on GitHub</a></p>
         </div>
         <div className="flex gap-4 justify-center">
-          <a href="/admin/engrams" className="bg-gray-900 text-white px-6 py-3 rounded-lg">Back to Library</a>
-          <button onClick={() => window.location.reload()} className="bg-[#F7FF96] text-gray-900 px-6 py-3 rounded-lg">Create Another</button>
+          <a href="/admin/engrams" className="bg-gray-900 text-white px-6 py-3 rounded-lg">View Library</a>
+          <button onClick={() => window.location.reload()} className="bg-[#F7FF96] text-gray-900 px-6 py-3 rounded-lg">Add More Content</button>
         </div>
       </div>
     );
@@ -205,6 +216,7 @@ export default function NewEngramPage() {
             onAnalyze={handleAIAnalysis}
             onContinue={() => setStep(5)}
             isAnalyzing={isAnalyzing}
+            duplicateCheck={duplicateCheck}
           />
         )}
         
