@@ -52,7 +52,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     setTimeout(() => setShowAppliedToast(false), 3000);
   };
 
-  // FIX #4 & #5: No "##" and proper spacing
   const addSectionToFinal = (sectionContent: string, sectionTitle: string) => {
     const separator = editedContent.endsWith('\n\n') ? '' : '\n\n';
     const newContent = editedContent + separator + sectionTitle + '\n\n' + sectionContent + '\n\n';
@@ -75,7 +74,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     }
   };
 
-  // FIX #1: Proper readability parsing
   const getReadability = () => {
     const score = analysis.readability?.score;
     if (typeof score === 'number') {
@@ -115,20 +113,18 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </button>
       </div>
 
-      {/* FIX #1: Readability */}
       {analysis.readability && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
           <h3 className="font-medium text-purple-900">Readability: {analysis.readability?.gradeLevel || 'high school'} level</h3>
           <div className="flex items-center gap-3 my-2 max-w-md">
             <div className="flex-1 bg-purple-200 rounded-full h-2 overflow-hidden">
-              <div className="bg-purple-600 h-2 rounded-full transition-all" style={{ width: \`\${readability.percent}%\` }}></div>
+              <div className="bg-purple-600 h-2 rounded-full transition-all" style={{ width: `${readability.percent}%` }}></div>
             </div>
             <span className="text-sm font-medium whitespace-nowrap">{readability.score.toFixed(1)}/10</span>
           </div>
         </div>
       )}
 
-      {/* FIX #2: Obvious editing */}
       {analysis.beforeAfter && (
         <div className="space-y-4">
           <h3 className="font-medium text-gray-700">Before & After Comparison</h3>
@@ -142,7 +138,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
               </div>
             </div>
             
-            {/* FIX #2: Green border, edit badge, hint text */}
             <div className="bg-green-50 border-2 border-green-400 rounded-lg overflow-hidden shadow-sm">
               <div className="bg-green-100 px-4 py-2 flex justify-between items-center">
                 <span className="font-medium text-green-800 text-sm uppercase">After (AI Polished)</span>
@@ -167,7 +162,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {/* FIX #3, #6: Suggested sections with expand, Apply button below */}
       {analysis.missingContentSections?.length > 0 && !versionLocked && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <h3 className="font-medium text-orange-900 mb-3">💡 Suggested Sections to Add</h3>
@@ -177,7 +171,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
               const isExpanded = expandedSections.includes(i);
               
               return (
-                <div key={i} className={\`p-4 rounded border \${isAdded ? 'border-green-400 bg-green-50' : 'border-orange-300 bg-white'}\`}>
+                <div key={i} className={`p-4 rounded border ${isAdded ? 'border-green-400 bg-green-50' : 'border-orange-300 bg-white'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium">{section.sectionTitle}</h4>
                     {isAdded ? (
@@ -192,7 +186,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                     )}
                   </div>
                   
-                  {/* FIX #6: Full content with expand */}
                   <div className="text-sm text-gray-600 mb-2 whitespace-pre-wrap">
                     {isExpanded ? section.content : section.content.substring(0, 200)}
                     {section.content.length > 200 && !isExpanded && '...'}
@@ -209,7 +202,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
             })}
           </div>
           
-          {/* FIX #3: Apply button at bottom */}
           <div className="mt-4 pt-4 border-t border-orange-200">
             <button onClick={applyVersion} className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -221,7 +213,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {/* Apply button if no suggestions */}
       {!versionLocked && (!analysis.missingContentSections || analysis.missingContentSections.length === 0) && (
         <button onClick={applyVersion} className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2">
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -231,7 +222,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </button>
       )}
 
-      {/* Tags */}
       {analysis.suggestedTags?.length > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <h3 className="font-medium text-green-900 mb-2">Suggested Tags</h3>
@@ -243,7 +233,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 <button
                   key={i}
                   onClick={() => toggleTag(tag)}
-                  className={\`px-3 py-1 rounded-full text-sm transition-all \${isAdded ? 'bg-green-600 text-white' : 'bg-white text-green-800 border border-green-300 hover:bg-green-100'}\`}
+                  className={`px-3 py-1 rounded-full text-sm transition-all ${isAdded ? 'bg-green-600 text-white' : 'bg-white text-green-800 border border-green-300 hover:bg-green-100'}`}
                 >
                   {isAdded ? '✓ ' : '+ '}{tag}
                 </button>
@@ -258,12 +248,11 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {/* Continue */}
       <div className="flex justify-end pt-4 border-t">
         <button
           onClick={onContinue}
           disabled={!versionLocked}
-          className={\`px-6 py-3 rounded-lg font-medium \${versionLocked ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}\`}
+          className={`px-6 py-3 rounded-lg font-medium ${versionLocked ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
         >
           {versionLocked ? 'Continue to Metadata →' : 'Apply version to continue'}
         </button>
