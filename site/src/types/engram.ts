@@ -77,6 +77,9 @@ export interface SkillInput {
 export interface AgentProfile {
   skillMode?: 'procedure' | 'knowledge';
   skillType?: 'consultation' | 'diagnostic' | 'procedural' | 'creative' | 'knowledge';
+  domain?: string;
+  subdomains?: string[];
+  triggerQuestions?: string[];
   outcome?: string;
   riskLevel?: 'low' | 'medium' | 'high';
   triggers?: string[];
@@ -140,6 +143,24 @@ export const CATEGORIES = [
   'post-install',
   'support',
   'other',
+];
+
+export const AGENT_DOMAIN_SUGGESTIONS = [
+  'sales',
+  'operations',
+  'finance',
+  'interconnection',
+  'installation',
+  'maintenance',
+  'billing',
+  'incentives',
+  'customer-support',
+  'project-management',
+  'compliance',
+  'troubleshooting',
+  'design',
+  'procurement',
+  'service',
 ];
 
 export const CONTENT_TYPE_CONFIG = {

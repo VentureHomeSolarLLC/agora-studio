@@ -1,4 +1,4 @@
-import { EngramFormData, ContentType, CONTENT_TYPE_CONFIG, AgentProfile } from '@/types/engram';
+import { EngramFormData, ContentType, CONTENT_TYPE_CONFIG, AgentProfile, AGENT_DOMAIN_SUGGESTIONS } from '@/types/engram';
 
 interface BasicInfoFormProps {
   data: EngramFormData;
@@ -17,6 +17,8 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
 
   const asList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
   const asText = (values?: string[]) => values?.join(', ') || '';
+  const asLines = (values?: string[]) => values?.join('\n') || '';
+  const linesToList = (value: string) => value.split('\n').map((item) => item.trim()).filter(Boolean);
   const setSkillMode = (mode: AgentProfile['skillMode']) => {
     const updates: Partial<AgentProfile> = { skillMode: mode };
     if (mode === 'knowledge') {
@@ -125,6 +127,51 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
+            </div>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg p-4 bg-white">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">
+              Knowledge Classification {isKnowledgeOnly && <span className="text-red-500">*</span>}
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Primary Domain</label>
+                <input
+                  list="agent-domain-suggestions"
+                  value={agentProfile?.domain || ''}
+                  onChange={(e) => updateAgentProfile({ domain: e.target.value })}
+                  placeholder="e.g., operations"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                />
+                <datalist id="agent-domain-suggestions">
+                  {AGENT_DOMAIN_SUGGESTIONS.map((option) => (
+                    <option key={option} value={option} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Subdomains</label>
+                <input
+                  type="text"
+                  value={asText(agentProfile?.subdomains)}
+                  onChange={(e) => updateAgentProfile({ subdomains: asList(e.target.value) })}
+                  placeholder="e.g., energy_savings, efficiency"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                />
+                <p className="text-xs text-gray-400 mt-1">Comma-separated.</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2">Trigger Questions</label>
+              <textarea
+                value={asLines(agentProfile?.triggerQuestions)}
+                onChange={(e) => updateAgentProfile({ triggerQuestions: linesToList(e.target.value) })}
+                placeholder="Add one question per line\nExample: How can I save on my electric bill?"
+                rows={4}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+              />
+              <p className="text-xs text-gray-400 mt-1">These help agents route questions to the right Engram.</p>
             </div>
           </div>
 

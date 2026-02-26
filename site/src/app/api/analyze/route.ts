@@ -450,6 +450,9 @@ Return JSON with:
 - skill: {
     name,
     type: consultation | diagnostic | procedural | creative | knowledge,
+    domain,
+    subdomains: string[],
+    triggerQuestions: string[],
     outcome,
     riskLevel: low | medium | high,
     triggers: string[],
@@ -470,7 +473,8 @@ Guidelines:
 - Steps must be explicit (input → action → expected output).
 - Decision steps should include clear criteria.
 - Capture edge cases as lessons.
-- Be concise but complete.`
+- Be concise but complete.
+- Suggest domain/subdomains and 3-5 trigger questions for routing.`
       },
       {
         role: 'user',

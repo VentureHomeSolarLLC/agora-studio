@@ -280,6 +280,9 @@ function generateSkillMd(data: EngramFormData, engramId: string): string {
     type: 'skill',
     mode,
     skill_type: skillType,
+    domain: profile.domain || '',
+    subdomains: profile.subdomains || [],
+    trigger_questions: profile.triggerQuestions || [],
     outcome: profile.outcome || '',
     risk_level: profile.riskLevel || 'medium',
     triggers: profile.triggers || [],
@@ -302,6 +305,17 @@ function generateSkillMd(data: EngramFormData, engramId: string): string {
   }
   if (profile.triggers && profile.triggers.length > 0) {
     sections.push(`## Triggers\n${profile.triggers.map((t) => `- ${t}`).join('\n')}`);
+  }
+  if (profile.domain || (profile.subdomains && profile.subdomains.length > 0)) {
+    const domainLines = [];
+    if (profile.domain) domainLines.push(`- Domain: ${profile.domain}`);
+    if (profile.subdomains && profile.subdomains.length > 0) {
+      domainLines.push(`- Subdomains: ${profile.subdomains.join(', ')}`);
+    }
+    sections.push(`## Knowledge Classification\n${domainLines.join('\n')}`);
+  }
+  if (profile.triggerQuestions && profile.triggerQuestions.length > 0) {
+    sections.push(`## Trigger Questions\n${profile.triggerQuestions.map((t) => `- ${t}`).join('\n')}`);
   }
   if (profile.requiredInputs && profile.requiredInputs.length > 0) {
     sections.push(`## Required Inputs\n${profile.requiredInputs.map((t) => `- ${t}`).join('\n')}`);
