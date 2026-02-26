@@ -425,7 +425,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
       {renderDuplicateCheck()}
 
-      {data.contentType !== 'agent' && extraction && (extraction.concepts.length > 0 || extraction.lessons.length > 0) && (
+      {extraction && (extraction.concepts.length > 0 || extraction.lessons.length > 0) && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between gap-4 mb-3">
             <div>
@@ -642,7 +642,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {data.contentType !== 'agent' && extraction && hasNoNetNewAgentContent && (
+      {extraction && hasNoNetNewAgentContent && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <h3 className="font-medium text-green-900 mb-1">No net-new agent content detected</h3>
           <p className="text-sm text-green-800">
@@ -653,7 +653,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {data.contentType !== 'agent' && extraction && hasNetNewCandidates && !hasSelectedExtraction && (
+      {extraction && hasNetNewCandidates && !hasSelectedExtraction && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-blue-900 mb-1">No agent-training items selected yet</h3>
           <p className="text-sm text-blue-800">Select net-new items above to create draft Engram files, or merge duplicates into existing files.</p>
