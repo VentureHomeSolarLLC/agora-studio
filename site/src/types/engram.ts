@@ -71,7 +71,8 @@ export interface SkillInput {
 }
 
 export interface AgentProfile {
-  skillType?: 'consultation' | 'diagnostic' | 'procedural' | 'creative';
+  skillMode?: 'procedure' | 'knowledge';
+  skillType?: 'consultation' | 'diagnostic' | 'procedural' | 'creative' | 'knowledge';
   outcome?: string;
   riskLevel?: 'low' | 'medium' | 'high';
   triggers?: string[];

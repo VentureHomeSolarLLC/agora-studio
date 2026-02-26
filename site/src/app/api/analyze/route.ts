@@ -10,7 +10,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { content, contentType, title } = await request.json();
+    const { content, contentType, title, agentMode } = await request.json();
 
     if (!content || !contentType) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         analysis = await analyzeInternalContent(content, title);
         break;
       case 'agent':
-        analysis = await analyzeAgentInstructions(content, title);
+        analysis = await analyzeAgentInstructions(content, title, agentMode);
         break;
       default:
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
@@ -401,7 +401,10 @@ async function analyzeInternalContent(content: string, title: string) {
   return JSON.parse(response.choices[0].message.content || '{}');
 }
 
-async function analyzeAgentInstructions(content: string, title: string) {
+async function analyzeAgentInstructions(content: string, title: string, agentMode?: 'procedure' | 'knowledge') {
+  const modeHint = agentMode === 'knowledge'
+    ? 'Mode: knowledge-only. Emphasize reference knowledge, definitions, and guardrails. Steps are optional; if included, keep them minimal.'
+    : 'Mode: procedure. Provide step-by-step execution guidance.';
   const response = await openai.chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages: [
@@ -409,10 +412,12 @@ async function analyzeAgentInstructions(content: string, title: string) {
         role: 'system',
         content: `You are creating a high-quality AI agent skill (Engram v2). Convert rough notes into a structured skill that agents can execute safely.
 
+${modeHint}
+
 Return JSON with:
 - skill: {
     name,
-    type: consultation | diagnostic | procedural | creative,
+    type: consultation | diagnostic | procedural | creative | knowledge,
     outcome,
     riskLevel: low | medium | high,
     triggers: string[],

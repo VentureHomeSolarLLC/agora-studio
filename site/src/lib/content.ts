@@ -37,12 +37,23 @@ export interface Engram {
   audience?: string[];
 }
 
+type Frontmatter = {
+  audience?: string[];
+  visibility?: string;
+  tags?: string[];
+  title?: string;
+  description?: string;
+  card?: string;
+  content_type?: string;
+  concept_id?: string;
+};
+
 // Check if content is public (customer-facing)
 export function isPublicContent(audience: string[]): boolean {
   return audience.includes("customer") || audience.includes("external");
 }
 
-function normalizeAudience(data: Record<string, any>): string[] {
+function normalizeAudience(data: Frontmatter): string[] {
   if (Array.isArray(data.audience) && data.audience.length > 0) {
     return data.audience;
   }

@@ -39,6 +39,7 @@ export default function NewEngramPage() {
     rawContent: '',
     aiAnalysis: null,
     agentProfile: {
+      skillMode: 'procedure',
       skillType: 'procedural',
       riskLevel: 'medium',
       triggers: [],
@@ -66,6 +67,7 @@ export default function NewEngramPage() {
       tags: [...config.defaultTags],
       aiAnalysis: null,
       agentProfile: type === 'agent' ? {
+        skillMode: 'procedure',
         skillType: 'procedural',
         riskLevel: 'medium',
         triggers: [],
@@ -94,6 +96,7 @@ export default function NewEngramPage() {
           content: formData.rawContent,
           contentType: formData.contentType,
           title: formData.title,
+          agentMode: formData.agentProfile?.skillMode,
         }),
       });
 
@@ -114,9 +117,10 @@ export default function NewEngramPage() {
       
       if (formData.contentType === 'agent') {
         const skill = analysis.skill || {};
+        const isKnowledgeMode = formData.agentProfile?.skillMode === 'knowledge';
         const nextProfile = {
           ...formData.agentProfile,
-          skillType: formData.agentProfile?.skillType || skill.type || 'procedural',
+          skillType: isKnowledgeMode ? 'knowledge' : (formData.agentProfile?.skillType || skill.type || 'procedural'),
           outcome: formData.agentProfile?.outcome || skill.outcome || '',
           riskLevel: formData.agentProfile?.riskLevel || skill.riskLevel || 'medium',
           triggers: formData.agentProfile?.triggers?.length ? formData.agentProfile.triggers : (skill.triggers || []),

@@ -39,6 +39,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const [showAppliedToast, setShowAppliedToast] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
   const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isKnowledgeOnly = data.agentProfile?.skillMode === 'knowledge';
 
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
@@ -308,9 +309,20 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-blue-900 mb-2">Skill Profile</h3>
           <p className="text-sm text-blue-800">
-            Review the outcome, triggers, and guardrails in Step 2. The draft below focuses on execution steps and knowledge support.
+            {isKnowledgeOnly
+              ? 'Review the outcome, triggers, and guardrails in Step 2. The draft below focuses on reference knowledge.'
+              : 'Review the outcome, triggers, and guardrails in Step 2. The draft below focuses on execution steps and knowledge support.'}
           </p>
         </div>
+
+        {isKnowledgeOnly && (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <h3 className="font-medium text-slate-900 mb-2">Knowledge-only mode</h3>
+            <p className="text-sm text-slate-700">
+              Steps are optional here. Focus on the concepts and lessons that capture the core knowledge for agents.
+            </p>
+          </div>
+        )}
 
         <SkillBuilder
           data={data.skill}

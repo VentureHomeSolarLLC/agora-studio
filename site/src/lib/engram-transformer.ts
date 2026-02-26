@@ -237,10 +237,13 @@ function generateIndexMd(data: EngramFormData, engramId: string): string {
 
 function generateSkillMd(data: EngramFormData, engramId: string): string {
   const profile = data.agentProfile || {};
+  const mode = profile.skillMode || 'procedure';
+  const skillType = mode === 'knowledge' ? 'knowledge' : (profile.skillType || 'procedural');
   const frontmatter = {
     engram_id: engramId,
     type: 'skill',
-    skill_type: profile.skillType || 'procedural',
+    mode,
+    skill_type: skillType,
     outcome: profile.outcome || '',
     risk_level: profile.riskLevel || 'medium',
     triggers: profile.triggers || [],
@@ -283,6 +286,7 @@ function generateSkillMd(data: EngramFormData, engramId: string): string {
     sections.push(`## Prerequisites\n${data.skill.prerequisites.map((t) => `- ${t}`).join('\n')}`);
   }
 
+  const hasSteps = Array.isArray(data.skill.steps) && data.skill.steps.length > 0;
   const steps =
     data.skill.steps?.map((step, index) => {
       const title = step.title?.trim();
@@ -290,9 +294,13 @@ function generateSkillMd(data: EngramFormData, engramId: string): string {
       const typeLabel = step.type ? `\nType: ${step.type}` : '';
       const body = step.content ? `\n${step.content}` : '';
       return `${header}${typeLabel}${body}`;
-    }).join('\n\n') || '### Step 1\nType: text\nAdd step-by-step instructions.';
+    }).join('\n\n') || '';
 
-  sections.push(`## Steps\n\n${steps}`);
+  if (mode === 'knowledge' && !hasSteps) {
+    sections.push('## Steps (Optional)\n\nNo procedural steps required. Answer using the knowledge sections below.');
+  } else {
+    sections.push(`## Steps${mode === 'knowledge' ? ' (Optional)' : ''}\n\n${steps || '### Step 1\\nType: text\\nAdd step-by-step instructions.'}`);
+  }
 
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + sections.join('\n\n');
 }
@@ -427,7 +435,8 @@ function generateAutoSkillMd(params: { engramId: string; title: string; sourceCu
   const frontmatter = {
     engram_id: params.engramId,
     type: 'skill',
-    skill_type: 'procedural',
+    mode: 'knowledge',
+    skill_type: 'knowledge',
     outcome: '',
     risk_level: 'medium',
     triggers: [],
