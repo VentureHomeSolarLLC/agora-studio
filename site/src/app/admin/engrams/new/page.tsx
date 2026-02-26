@@ -42,7 +42,7 @@ export default function NewEngramPage() {
 
   const updateFormData = (updates: Partial<EngramFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
-n  };
+  };
 
   const handleContentTypeChange = (type: ContentType) => {
     const config = CONTENT_TYPE_CONFIG[type];
