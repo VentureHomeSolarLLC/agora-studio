@@ -1,4 +1,4 @@
-import { getPublicConcepts, getConceptsByCategory } from "@/lib/content";
+import { getPublicArticles, getArticlesByCategory } from "@/lib/content";
 import Link from "next/link";
 import { Search, BookOpen, ArrowLeft } from "lucide-react";
 
@@ -11,11 +11,11 @@ export default async function BrowsePage({ searchParams }: Props) {
   const category = params.category;
   const query = params.q;
   
-  let concepts = getPublicConcepts();
+  let concepts = getPublicArticles();
   let title = "All Help Articles";
   
   if (category) {
-    concepts = getConceptsByCategory(category);
+    concepts = getArticlesByCategory(category);
     const categoryTitles: Record<string, string> = {
       billing: "Billing & Net Metering",
       incentives: "Incentives & SRECs",

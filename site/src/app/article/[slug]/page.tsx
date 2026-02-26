@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getConceptBySlug, getPublicConcepts, isPublicContent } from "@/lib/content";
+import { getCustomerPageBySlug, getPublicArticles, isPublicContent } from "@/lib/content";
 import Link from "next/link";
 import { remark } from "remark";
 import html from "remark-html";
@@ -11,13 +11,13 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  const concepts = getPublicConcepts();
-  return concepts.map((c) => ({ slug: c.slug }));
+  const articles = getPublicArticles();
+  return articles.map((c) => ({ slug: c.slug }));
 }
 
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
-  const concept = getConceptBySlug(slug, false);
+  const concept = getCustomerPageBySlug(slug);
   return {
     title: concept ? `${concept.title} | Venture Home Help` : "Not Found",
   };
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const concept = getConceptBySlug(slug, false);
+  const concept = getCustomerPageBySlug(slug);
 
   if (!concept) {
     notFound();

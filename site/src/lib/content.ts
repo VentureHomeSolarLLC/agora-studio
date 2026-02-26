@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 
+const CUSTOMER_PAGES_DIR = path.join(process.cwd(), "..", "customer-pages");
 const CONCEPTS_DIR = path.join(process.cwd(), "..", "concepts");
 const ENGRAMS_DIR = path.join(process.cwd(), "..", "engrams");
 
@@ -16,6 +17,17 @@ export interface Concept {
   excerpt?: string;
 }
 
+export interface Article {
+  slug: string;
+  title: string;
+  content_type: string;
+  audience: string[];
+  tags: string[];
+  content: string;
+  excerpt?: string;
+  description?: string;
+}
+
 export interface Engram {
   slug: string;
   engram_id: string;
@@ -28,6 +40,109 @@ export interface Engram {
 // Check if content is public (customer-facing)
 export function isPublicContent(audience: string[]): boolean {
   return audience.includes("customer") || audience.includes("external");
+}
+
+function normalizeAudience(data: Record<string, any>): string[] {
+  if (Array.isArray(data.audience) && data.audience.length > 0) {
+    return data.audience;
+  }
+  const visibility = data.visibility;
+  const tags = Array.isArray(data.tags) ? data.tags : [];
+  if (visibility === "customer" || visibility === "external" || tags.includes("external")) {
+    return ["customer"];
+  }
+  return [];
+}
+
+function buildExcerpt(content: string): string {
+  return content.slice(0, 200).replace(/#.*\n/g, "").trim();
+}
+
+export function getAllCustomerPages(): Article[] {
+  if (!fs.existsSync(CUSTOMER_PAGES_DIR)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(CUSTOMER_PAGES_DIR, { withFileTypes: true });
+  const articles: Article[] = [];
+
+  for (const entry of entries) {
+    if (entry.isFile() && entry.name.endsWith(".md")) {
+      const slug = entry.name.replace(".md", "");
+      const filePath = path.join(CUSTOMER_PAGES_DIR, entry.name);
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+      const { data, content } = matter(fileContent);
+      const audience = normalizeAudience(data);
+
+      articles.push({
+        slug,
+        title: data.title || slug,
+        content_type: data.content_type || "customer-page",
+        audience,
+        tags: data.tags || [],
+        content,
+        description: data.description || data.card || "",
+        excerpt: buildExcerpt(content),
+      });
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      const indexPath = path.join(CUSTOMER_PAGES_DIR, entry.name, "_index.md");
+      if (!fs.existsSync(indexPath)) continue;
+      const fileContent = fs.readFileSync(indexPath, "utf-8");
+      const { data, content } = matter(fileContent);
+      const audience = normalizeAudience(data);
+
+      articles.push({
+        slug: entry.name,
+        title: data.title || entry.name,
+        content_type: data.content_type || "customer-page",
+        audience,
+        tags: data.tags || [],
+        content,
+        description: data.description || data.card || "",
+        excerpt: buildExcerpt(content),
+      });
+    }
+  }
+
+  return articles.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+export function getCustomerPageBySlug(slug: string): Article | null {
+  if (!fs.existsSync(CUSTOMER_PAGES_DIR)) return null;
+
+  const filePath = path.join(CUSTOMER_PAGES_DIR, `${slug}.md`);
+  const folderPath = path.join(CUSTOMER_PAGES_DIR, slug, "_index.md");
+
+  let targetPath: string | null = null;
+  if (fs.existsSync(folderPath)) {
+    targetPath = folderPath;
+  } else if (fs.existsSync(filePath)) {
+    targetPath = filePath;
+  }
+
+  if (!targetPath) return null;
+
+  const fileContent = fs.readFileSync(targetPath, "utf-8");
+  const { data, content } = matter(fileContent);
+  const audience = normalizeAudience(data);
+
+  return {
+    slug,
+    title: data.title || slug,
+    content_type: data.content_type || "customer-page",
+    audience,
+    tags: data.tags || [],
+    content,
+    description: data.description || data.card || "",
+    excerpt: buildExcerpt(content),
+  };
+}
+
+export function getPublicArticles(): Article[] {
+  return getAllCustomerPages().filter((article) => isPublicContent(article.audience));
 }
 
 export function getAllConcepts(includeInternal = false): Concept[] {
@@ -50,7 +165,7 @@ export function getAllConcepts(includeInternal = false): Concept[] {
 }
 
 export function getPublicConcepts(): Concept[] {
-  return getAllConcepts(false).filter(c => isPublicContent(c.audience));
+  return getAllConcepts(false).filter((c) => isPublicContent(c.audience));
 }
 
 export function getConceptBySlug(slug: string, includeInternal = false): Concept | null {
@@ -76,7 +191,7 @@ export function getConceptBySlug(slug: string, includeInternal = false): Concept
     audience,
     tags: data.tags || [],
     content,
-    excerpt: content.slice(0, 200).replace(/#.*\n/g, "").trim(),
+    excerpt: buildExcerpt(content),
   };
 }
 
@@ -131,8 +246,8 @@ export function searchConcepts(query: string, includeInternal = false): Concept[
   );
 }
 
-export function getConceptsByCategory(category: string): Concept[] {
-  const concepts = getPublicConcepts();
+export function getArticlesByCategory(category: string): Article[] {
+  const concepts = getPublicArticles();
   
   const categoryMap: Record<string, string[]> = {
     "billing": ["net-metering", "utility", "bill", "metering"],
@@ -145,9 +260,9 @@ export function getConceptsByCategory(category: string): Concept[] {
   
   const tags = categoryMap[category] || [category];
   
-  return concepts.filter(c => 
-    tags.some(tag => 
-      c.tags.some(t => t.toLowerCase().includes(tag)) ||
+  return concepts.filter((c) =>
+    tags.some((tag) =>
+      c.tags.some((t) => t.toLowerCase().includes(tag)) ||
       c.title.toLowerCase().includes(tag)
     )
   );

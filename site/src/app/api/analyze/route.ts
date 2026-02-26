@@ -299,7 +299,7 @@ function loadDocuments(): IndexedDoc[] {
 
 function getAllowedTypes(contentType: string): Set<IndexedDoc['type']> {
   if (contentType === 'customer') {
-    return new Set(['customer-page', 'concept']);
+    return new Set(['customer-page']);
   }
   if (contentType === 'internal') {
     return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
