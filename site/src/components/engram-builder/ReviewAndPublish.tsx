@@ -19,10 +19,10 @@ export function ReviewAndPublish({ data, onPublish, isSubmitting, contentType }:
   } else {
     files.push('📄 engrams-v2/[id]/_index.md');
     files.push('📄 engrams-v2/[id]/SKILL.md');
-    if (data.concepts?.length > 0) {
+    if (data.concepts && data.concepts.length > 0) {
       files.push(`📄 engrams-v2/[id]/concepts/ (${data.concepts.length} files)`);
     }
-    if (data.lessons?.length > 0) {
+    if (data.lessons && data.lessons.length > 0) {
       files.push(`📄 engrams-v2/[id]/lessons/ (${data.lessons.length} files)`);
     }
   }
