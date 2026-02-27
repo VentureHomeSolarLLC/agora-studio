@@ -1,14 +1,14 @@
-import { getPublicConcepts, getConceptsByCategory } from "@/lib/content";
+import { getPublicArticles, getArticlesByCategory } from "@/lib/content";
 import Link from "next/link";
 import { Search, BookOpen, Zap, MessageCircle, DollarSign, Battery, Wrench, Lock } from "lucide-react";
 
 export default async function Home() {
-  const publicConcepts = getPublicConcepts();
+  const publicConcepts = getPublicArticles();
   
   // Get featured categories
-  const billingConcepts = getConceptsByCategory("billing").slice(0, 4);
-  const incentiveConcepts = getConceptsByCategory("incentives").slice(0, 4);
-  const batteryConcepts = getConceptsByCategory("batteries").slice(0, 4);
+  const billingConcepts = getArticlesByCategory("billing").slice(0, 4);
+  const incentiveConcepts = getArticlesByCategory("incentives").slice(0, 4);
+  const batteryConcepts = getArticlesByCategory("batteries").slice(0, 4);
 
   return (
     <div className="min-h-screen bg-[#F3F3EA]">
@@ -112,7 +112,7 @@ export default async function Home() {
                 <ArticleLink key={concept.slug} concept={concept} />
               ))}
               <Link
-                href="/state-incentives-overview"
+                href="/article/state-incentives-overview"
                 className="text-sm text-[#231F20]/60 hover:text-[#231F20] inline-flex items-center gap-1"
               >
                 View all state incentives →

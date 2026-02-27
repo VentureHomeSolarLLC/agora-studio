@@ -10,7 +10,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { content, contentType, title } = await request.json();
+    const { content, contentType, title, agentMode } = await request.json();
 
     if (!content || !contentType) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -23,31 +23,14 @@ export async function POST(request: NextRequest) {
     switch (contentType) {
       case 'customer':
         analysis = await analyzeCustomerContent(content, title);
-        if (analysis?.agentTrainingPotential) {
-          const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
-          if (Array.isArray(analysis.agentTrainingPotential.suggestedConcepts)) {
-            analysis.agentTrainingPotential.suggestedConcepts = analysis.agentTrainingPotential.suggestedConcepts.map((concept: any) => ({
-              ...concept,
-              duplicate: findDuplicatesForText(concept.title || 'Untitled concept', concept.content || '', agentTypes),
-            }));
-          }
-          if (Array.isArray(analysis.agentTrainingPotential.suggestedLessons)) {
-            analysis.agentTrainingPotential.suggestedLessons = analysis.agentTrainingPotential.suggestedLessons.map((lesson: any) => ({
-              ...lesson,
-              duplicate: findDuplicatesForText(
-                lesson.title || 'Untitled lesson',
-                `${lesson.scenario || ''}\n${lesson.solution || ''}`,
-                agentTypes
-              ),
-            }));
-          }
-        }
+        analysis = enrichAgentTrainingPotential(analysis);
         break;
       case 'internal':
         analysis = await analyzeInternalContent(content, title);
+        analysis = enrichAgentTrainingPotential(analysis);
         break;
       case 'agent':
-        analysis = await analyzeAgentInstructions(content, title);
+        analysis = await analyzeAgentInstructions(content, title, agentMode);
         break;
       default:
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
@@ -74,6 +57,28 @@ type IndexedDoc = {
   tokens: Map<string, number>;
   norm: number;
 };
+
+function enrichAgentTrainingPotential(analysis: any) {
+  if (!analysis?.agentTrainingPotential) return analysis;
+  const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
+  if (Array.isArray(analysis.agentTrainingPotential.suggestedConcepts)) {
+    analysis.agentTrainingPotential.suggestedConcepts = analysis.agentTrainingPotential.suggestedConcepts.map((concept: any) => ({
+      ...concept,
+      duplicate: findDuplicatesForText(concept.title || 'Untitled concept', concept.content || '', agentTypes),
+    }));
+  }
+  if (Array.isArray(analysis.agentTrainingPotential.suggestedLessons)) {
+    analysis.agentTrainingPotential.suggestedLessons = analysis.agentTrainingPotential.suggestedLessons.map((lesson: any) => ({
+      ...lesson,
+      duplicate: findDuplicatesForText(
+        lesson.title || 'Untitled lesson',
+        `${lesson.scenario || ''}\n${lesson.solution || ''}`,
+        agentTypes
+      ),
+    }));
+  }
+  return analysis;
+}
 
 const STOP_WORDS = new Set([
   'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'but', 'for', 'from', 'if',
@@ -299,7 +304,7 @@ function loadDocuments(): IndexedDoc[] {
 
 function getAllowedTypes(contentType: string): Set<IndexedDoc['type']> {
   if (contentType === 'customer') {
-    return new Set(['customer-page', 'concept']);
+    return new Set(['customer-page']);
   }
   if (contentType === 'internal') {
     return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
@@ -307,10 +312,17 @@ function getAllowedTypes(contentType: string): Set<IndexedDoc['type']> {
   return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
 }
 
-function findDuplicatesForText(title: string, content: string, allowedTypes: Set<IndexedDoc['type']>) {
+function findDuplicatesForText(
+  title: string,
+  content: string,
+  allowedTypes: Set<IndexedDoc['type']>,
+  options?: { matchThreshold?: number; similarThreshold?: number }
+) {
   const docs = loadDocuments();
   const weighted = `${title}\n${title}\n${content}`;
   const inputVector = buildVector(tokenize(weighted));
+  const matchThreshold = options?.matchThreshold ?? 0.12;
+  const similarThreshold = options?.similarThreshold ?? 0.25;
 
   const scored = docs
     .filter((doc) => allowedTypes.has(doc.type))
@@ -321,19 +333,20 @@ function findDuplicatesForText(title: string, content: string, allowedTypes: Set
       viewUrl: doc.viewUrl,
       score: cosineSimilarity(inputVector, doc),
     }))
-    .filter((match) => match.score > 0.12)
+    .filter((match) => match.score > matchThreshold)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
   const topScore = scored[0]?.score || 0;
-  const similar = topScore >= 0.25;
+  const similar = topScore >= similarThreshold;
 
   return { similar, topScore, matches: scored };
 }
 
 async function checkForDuplicates(title: string, content: string, contentType: string) {
   const allowed = getAllowedTypes(contentType);
-  return findDuplicatesForText(title, content, allowed);
+  const similarThreshold = contentType === 'customer' ? 0.5 : 0.25;
+  return findDuplicatesForText(title, content, allowed, { similarThreshold });
 }
 
 async function analyzeCustomerContent(content: string, title: string) {
@@ -359,13 +372,16 @@ Return JSON with:
 - missingContentSections: [{sectionTitle, content, placement, whyImportant}]
 - agentTrainingPotential: {
     hasExtractableContent: boolean,
-    suggestedConcepts: [{title, content, forEngram: string}],
-    suggestedLessons: [{title, scenario, solution, forEngram: string}]
+    suggestedConcepts: [{title, content, forEngram: string, confidence: number, riskLevel: low | medium | high}],
+    suggestedLessons: [{title, scenario, solution, forEngram: string, confidence: number, riskLevel: low | medium | high}],
+    engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
   }
 - suggestedTags: array
 - warnings: array
 
-IMPORTANT: Solar panels and batteries don't need regular check-ups, only when there's an issue.`
+IMPORTANT: Solar panels and batteries don't need regular check-ups, only when there's an issue.
+When assigning engramModes, use procedure if the content implies a repeatable process; otherwise use knowledge.
+Set confidence from 0 to 1, and mark riskLevel as high if using the content without review could cause safety, legal, or financial harm.`
       },
       {
         role: 'user',
@@ -386,7 +402,23 @@ async function analyzeInternalContent(content: string, title: string) {
     messages: [
       {
         role: 'system',
-        content: 'Analyze internal docs. Return JSON with sections, technicalDetails, edgeCases, missingContent, suggestedTags.'
+        content: `Analyze internal docs for the Venture Home team.
+
+Return JSON with:
+- sections: [{title, content}]
+- technicalDetails: array
+- edgeCases: array
+- missingContent: array
+- suggestedTags: array
+- agentTrainingPotential: {
+    hasExtractableContent: boolean,
+    suggestedConcepts: [{title, content, forEngram: string, confidence: number, riskLevel: low | medium | high}],
+    suggestedLessons: [{title, scenario, solution, forEngram: string, confidence: number, riskLevel: low | medium | high}],
+    engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
+  }
+
+Use procedure mode only when the content describes a repeatable process; otherwise use knowledge.
+Set confidence from 0 to 1, and mark riskLevel as high if using the content without review could cause safety, legal, or financial harm.`
       },
       {
         role: 'user',
@@ -401,13 +433,48 @@ async function analyzeInternalContent(content: string, title: string) {
   return JSON.parse(response.choices[0].message.content || '{}');
 }
 
-async function analyzeAgentInstructions(content: string, title: string) {
+async function analyzeAgentInstructions(content: string, title: string, agentMode?: 'procedure' | 'knowledge') {
+  const modeHint = agentMode === 'knowledge'
+    ? 'Mode: knowledge-only. Emphasize reference knowledge, definitions, and guardrails. Steps are optional; if included, keep them minimal.'
+    : 'Mode: procedure. Provide step-by-step execution guidance.';
   const response = await openai.chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages: [
       {
         role: 'system',
-        content: 'Convert to AI instructions. Return JSON with steps, concepts, lessons, searchability, suggestedEdit. Be aggressive about restructuring.'
+        content: `You are creating a high-quality AI agent skill (Engram v2). Convert rough notes into a structured skill that agents can execute safely.
+
+${modeHint}
+
+Return JSON with:
+- skill: {
+    name,
+    type: consultation | diagnostic | procedural | creative | knowledge,
+    domain,
+    subdomains: string[],
+    triggerQuestions: string[],
+    outcome,
+    riskLevel: low | medium | high,
+    triggers: string[],
+    requiredInputs: string[],
+    constraints: string[],
+    allowedSystems: string[],
+    escalationCriteria: string[],
+    stopConditions: string[],
+    prerequisites: string[],
+    steps: [{title, content, type: text | checkbox | decision}]
+  }
+- concepts: [{title, content, tags}]
+- lessons: [{title, content, date, severity}]
+- suggestedTags: string[]
+- warnings: string[]
+
+Guidelines:
+- Steps must be explicit (input → action → expected output).
+- Decision steps should include clear criteria.
+- Capture edge cases as lessons.
+- Be concise but complete.
+- Suggest domain/subdomains and 3-5 trigger questions for routing.`
       },
       {
         role: 'user',
