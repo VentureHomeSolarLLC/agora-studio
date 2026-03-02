@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { LogOut, LogIn, Lock, Phone } from "lucide-react";
+import { LogOut, Lock } from "lucide-react";
 import Image from "next/image";
 
 export function Navigation() {
@@ -44,16 +44,40 @@ export function Navigation() {
             ) : session ? (
               <>
                 <Link
-                  href="/admin/create"
+                  href="/admin/engrams/new"
                   className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
                 >
                   Create
                 </Link>
                 <Link
-                  href="/admin/builder"
+                  href="/engrams"
                   className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
                 >
+                  Engrams
+                </Link>
+                <Link
+                  href="/search"
+                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                >
+                  Search
+                </Link>
+                <Link
+                  href="/admin/engrams/map"
+                  className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                >
+                  Map
+                </Link>
+                <Link
+                  href="/admin/builder"
+                  className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                >
                   Builder
+                </Link>
+                <Link
+                  href="/browse"
+                  className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                >
+                  Browse
                 </Link>
                 <button
                   onClick={() => signOut()}
