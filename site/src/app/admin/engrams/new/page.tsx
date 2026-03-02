@@ -179,7 +179,7 @@ export default function NewEngramPage() {
         const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
         const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
         const fallbackId = slugify(formData.title || 'engram');
-        const agentEngramModes = Array.from(
+        const agentEngramModesArray = Array.from(
           suggestedModes.reduce((map: Map<string, any>, mode: any) => {
             const engramId = slugify(mode.forEngram || formData.title || fallbackId);
             const existing = map.get(engramId);
@@ -200,7 +200,7 @@ export default function NewEngramPage() {
             });
             return map;
           }, new Map<string, any>())
-        ).map((entry) => entry[1]);
+        .values());
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: {
@@ -232,7 +232,7 @@ export default function NewEngramPage() {
               duplicate: lesson.duplicate,
             })),
           },
-          agentEngramModes,
+          agentEngramModes: agentEngramModesArray,
           duplicateResolutionConfirmed: false,
           duplicateCheck: data.duplicateCheck || null,
           concepts: analysis.concepts || [],
@@ -243,7 +243,7 @@ export default function NewEngramPage() {
         const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
         const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
         const fallbackId = slugify(formData.title || 'engram');
-        const agentEngramModes = Array.from(
+        const agentEngramModesArray = Array.from(
           suggestedModes.reduce((map: Map<string, any>, mode: any) => {
             const engramId = slugify(mode.forEngram || formData.title || fallbackId);
             const existing = map.get(engramId);
@@ -264,7 +264,7 @@ export default function NewEngramPage() {
             });
             return map;
           }, new Map<string, any>())
-        ).map((entry) => entry[1]);
+        .values());
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: {
@@ -296,7 +296,7 @@ export default function NewEngramPage() {
               duplicate: lesson.duplicate,
             })),
           },
-          agentEngramModes,
+          agentEngramModes: agentEngramModesArray,
           duplicateResolutionConfirmed: false,
           duplicateCheck: data.duplicateCheck || null,
           concepts: analysis.sections?.map((s: any) => ({
