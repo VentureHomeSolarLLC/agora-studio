@@ -38,6 +38,8 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const [versionLocked, setVersionLocked] = useState(false);
   const [showAppliedToast, setShowAppliedToast] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
+  const [conceptYamlPreview, setConceptYamlPreview] = useState<Record<number, boolean>>({});
+  const [lessonYamlPreview, setLessonYamlPreview] = useState<Record<number, boolean>>({});
   const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const isKnowledgeOnly = data.agentProfile?.skillMode === 'knowledge';
   const AUTO_INCLUDE_CONFIDENCE = 0.7;
@@ -86,6 +88,14 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     setExpandedSections(prev => 
       prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
     );
+  };
+
+  const toggleConceptPreview = (i: number) => {
+    setConceptYamlPreview((prev) => ({ ...prev, [i]: !prev[i] }));
+  };
+
+  const toggleLessonPreview = (i: number) => {
+    setLessonYamlPreview((prev) => ({ ...prev, [i]: !prev[i] }));
   };
 
   const toggleTag = (tag: string) => {
@@ -551,8 +561,26 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                   )}
                   <details className="mt-3">
                     <summary className="text-xs text-blue-700 cursor-pointer">Preview content</summary>
-                    <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap border-t border-blue-100 pt-2">
-                      {concept.content}
+                    <div className="mt-2 text-xs text-gray-500 flex items-center justify-between border-t border-blue-100 pt-2">
+                      <span>Preview mode</span>
+                      {concept.previewMarkdown && (
+                        <button
+                          type="button"
+                          onClick={() => toggleConceptPreview(i)}
+                          className="text-xs text-blue-700 hover:underline"
+                        >
+                          {conceptYamlPreview[i] ? 'Show content' : 'Show YAML'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
+                      {conceptYamlPreview[i] && concept.previewMarkdown ? (
+                        <pre className="text-xs text-gray-700 whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded-lg p-3">
+                          {concept.previewMarkdown}
+                        </pre>
+                      ) : (
+                        <div className="border-t border-blue-100 pt-2">{concept.content}</div>
+                      )}
                     </div>
                   </details>
                 </div>
@@ -639,11 +667,31 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                   )}
                   <details className="mt-3">
                     <summary className="text-xs text-blue-700 cursor-pointer">Preview lesson</summary>
-                    <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap border-t border-blue-100 pt-2">
-                      <p className="font-medium text-gray-800">Scenario</p>
-                      <p className="mt-1">{lesson.scenario}</p>
-                      <p className="font-medium text-gray-800 mt-3">Solution</p>
-                      <p className="mt-1">{lesson.solution}</p>
+                    <div className="mt-2 text-xs text-gray-500 flex items-center justify-between border-t border-blue-100 pt-2">
+                      <span>Preview mode</span>
+                      {lesson.previewMarkdown && (
+                        <button
+                          type="button"
+                          onClick={() => toggleLessonPreview(i)}
+                          className="text-xs text-blue-700 hover:underline"
+                        >
+                          {lessonYamlPreview[i] ? 'Show content' : 'Show YAML'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
+                      {lessonYamlPreview[i] && lesson.previewMarkdown ? (
+                        <pre className="text-xs text-gray-700 whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded-lg p-3">
+                          {lesson.previewMarkdown}
+                        </pre>
+                      ) : (
+                        <div className="border-t border-blue-100 pt-2">
+                          <p className="font-medium text-gray-800">Scenario</p>
+                          <p className="mt-1">{lesson.scenario}</p>
+                          <p className="font-medium text-gray-800 mt-3">Solution</p>
+                          <p className="mt-1">{lesson.solution}</p>
+                        </div>
+                      )}
                     </div>
                   </details>
                 </div>

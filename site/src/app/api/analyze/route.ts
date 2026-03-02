@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
+import crypto from 'crypto';
+import yaml from 'js-yaml';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -24,10 +26,12 @@ export async function POST(request: NextRequest) {
       case 'customer':
         analysis = await analyzeCustomerContent(content, title);
         analysis = enrichAgentTrainingPotential(analysis);
+        analysis = attachExtractionPreviews(analysis, 'customer', title, content);
         break;
       case 'internal':
         analysis = await analyzeInternalContent(content, title);
         analysis = enrichAgentTrainingPotential(analysis);
+        analysis = attachExtractionPreviews(analysis, 'internal', title, content);
         break;
       case 'agent':
         analysis = await analyzeAgentInstructions(content, title, agentMode);
@@ -80,6 +84,53 @@ function enrichAgentTrainingPotential(analysis: any) {
   return analysis;
 }
 
+type SourceInfo = { id: string; type: 'customer' | 'internal'; hash: string };
+
+function attachExtractionPreviews(
+  analysis: any,
+  contentType: 'customer' | 'internal',
+  title: string,
+  content: string
+) {
+  if (!analysis?.agentTrainingPotential) return analysis;
+  const potential = analysis.agentTrainingPotential;
+  if (!Array.isArray(potential.suggestedConcepts) && !Array.isArray(potential.suggestedLessons)) {
+    return analysis;
+  }
+
+  const fallbackId = slugify(title || 'engram');
+  const sourceInfo: SourceInfo = {
+    id: fallbackId,
+    type: contentType,
+    hash: computeSourceHash(title || '', content || ''),
+  };
+
+  if (Array.isArray(potential.suggestedConcepts)) {
+    potential.suggestedConcepts = potential.suggestedConcepts.map((concept: any) => {
+      const parentId = resolveTargetEngramId(concept.forEngram, fallbackId);
+      const conceptId = slugify(concept.title || 'auto-concept');
+      return {
+        ...concept,
+        previewMarkdown: buildAutoConceptPreview(concept, parentId, sourceInfo, conceptId),
+      };
+    });
+  }
+
+  if (Array.isArray(potential.suggestedLessons)) {
+    potential.suggestedLessons = potential.suggestedLessons.map((lesson: any) => {
+      const parentId = resolveTargetEngramId(lesson.forEngram, fallbackId);
+      const datePrefix = new Date().toISOString().split('T')[0];
+      const lessonId = `${datePrefix}-${slugify(lesson.title || 'auto-lesson')}`;
+      return {
+        ...lesson,
+        previewMarkdown: buildAutoLessonPreview(lesson, parentId, sourceInfo, lessonId),
+      };
+    });
+  }
+
+  return analysis;
+}
+
 const STOP_WORDS = new Set([
   'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'but', 'for', 'from', 'if',
   'in', 'into', 'is', 'it', 'its', 'no', 'not', 'of', 'on', 'or', 'our', 'so',
@@ -128,6 +179,93 @@ function cosineSimilarity(a: { tokens: Map<string, number>; norm: number }, b: I
 
 function getRepoRoot(): string {
   return path.join(process.cwd(), '..');
+}
+
+function buildAutoConceptPreview(
+  concept: { title: string; content: string; forEngram?: string },
+  parentId: string,
+  sourceInfo: SourceInfo,
+  conceptId: string
+): string {
+  const sourceField =
+    sourceInfo.type === 'internal'
+      ? { source_internal_doc: sourceInfo.id }
+      : { source_customer_page: sourceInfo.id };
+  const frontmatter = {
+    engram_id: parentId,
+    concept_id: conceptId,
+    title: concept.title,
+    type: 'concept',
+    auto_extracted: true,
+    for_engram: concept.forEngram || 'general',
+    ...sourceField,
+    source_hash: sourceInfo.hash,
+    tags: [
+      'auto-extracted',
+      sourceInfo.type === 'internal' ? 'internal-content-derived' : 'customer-content-derived',
+    ],
+  };
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    concept.title +
+    '\n\n' +
+    concept.content +
+    '\n\n---\n*Auto-extracted from customer-facing content. Review for accuracy before using in agent training.*'
+  );
+}
+
+function buildAutoLessonPreview(
+  lesson: { title: string; scenario: string; solution: string; forEngram?: string },
+  parentId: string,
+  sourceInfo: SourceInfo,
+  lessonId: string
+): string {
+  const sourceField =
+    sourceInfo.type === 'internal'
+      ? { source_internal_doc: sourceInfo.id }
+      : { source_customer_page: sourceInfo.id };
+  const frontmatter = {
+    engram_id: parentId,
+    lesson_id: lessonId,
+    date: lessonId.split('-').slice(0, 3).join('-'),
+    title: lesson.title,
+    type: 'lesson',
+    auto_extracted: true,
+    for_engram: lesson.forEngram || 'general',
+    severity: 'medium',
+    author: 'ai-extraction@venturehome.com',
+    ...sourceField,
+    source_hash: sourceInfo.hash,
+  };
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    lesson.title +
+    '\n\n## Scenario\n' +
+    lesson.scenario +
+    '\n\n## Solution\n' +
+    lesson.solution +
+    '\n\n---\n*Auto-extracted from customer-facing content. Review before using in agent training.*'
+  );
+}
+
+function resolveTargetEngramId(forEngram: string | undefined, fallbackEngramId: string): string {
+  const raw = (forEngram || '').trim();
+  if (!raw) return slugify(fallbackEngramId);
+  return slugify(raw);
+}
+
+function slugify(text: string): string {
+  return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
+}
+
+function computeSourceHash(title: string, content: string): string {
+  return crypto.createHash('sha256').update(`${title}\n${content}`).digest('hex');
 }
 
 function loadDocuments(): IndexedDoc[] {

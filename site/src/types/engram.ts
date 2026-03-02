@@ -27,6 +27,7 @@ export interface AgentExtractionConcept {
   confidence?: number;
   riskLevel?: 'low' | 'medium' | 'high';
   include: boolean;
+  previewMarkdown?: string;
   mergeTargetPath?: string;
   mergeTargetTitle?: string;
   mergeTargetType?: string;
@@ -51,6 +52,7 @@ export interface AgentExtractionLesson {
   confidence?: number;
   riskLevel?: 'low' | 'medium' | 'high';
   include: boolean;
+  previewMarkdown?: string;
   mergeTargetPath?: string;
   mergeTargetTitle?: string;
   mergeTargetType?: string;
