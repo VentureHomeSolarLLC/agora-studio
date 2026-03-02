@@ -606,7 +606,7 @@ Set confidence from 0 to 1, and mark riskLevel as high if using the content with
   });
 
   const raw = response.choices[0].message.content;
-  return safeParseJson(raw, {
+  const parsed = safeParseJson(raw, {
     beforeAfter: { before: content, after: content },
     sections: content ? [{ title: 'Overview', content }] : [],
     technicalDetails: [],
@@ -620,6 +620,45 @@ Set confidence from 0 to 1, and mark riskLevel as high if using the content with
       engramModes: [],
     },
   });
+  return ensureInternalBeforeAfter(parsed, content, title);
+}
+
+function ensureInternalBeforeAfter(analysis: any, content: string, title: string) {
+  const before = content || '';
+  const draft = buildInternalDraftFromAnalysis(analysis, title, before);
+  const currentAfter = analysis?.beforeAfter?.after || '';
+  const shouldReplace =
+    !currentAfter ||
+    (before.length > 120 && currentAfter.trim().length < Math.max(80, before.length * 0.4));
+
+  return {
+    ...analysis,
+    beforeAfter: {
+      before: analysis?.beforeAfter?.before || before,
+      after: shouldReplace ? draft : currentAfter,
+    },
+  };
+}
+
+function buildInternalDraftFromAnalysis(analysis: any, title: string, fallback: string) {
+  const parts: string[] = [];
+  if (title) parts.push(`# ${title}`);
+  const sections = Array.isArray(analysis?.sections) ? analysis.sections : [];
+  sections.forEach((section: any) => {
+    if (!section?.title || !section?.content) return;
+    parts.push(`## ${section.title}\n${section.content}`);
+  });
+  if (Array.isArray(analysis?.technicalDetails) && analysis.technicalDetails.length > 0) {
+    parts.push(`## Technical Details\n${analysis.technicalDetails.map((item: string) => `- ${item}`).join('\n')}`);
+  }
+  if (Array.isArray(analysis?.edgeCases) && analysis.edgeCases.length > 0) {
+    parts.push(`## Edge Cases\n${analysis.edgeCases.map((item: string) => `- ${item}`).join('\n')}`);
+  }
+  if (Array.isArray(analysis?.missingContent) && analysis.missingContent.length > 0) {
+    parts.push(`## Missing Info\n${analysis.missingContent.map((item: string) => `- ${item}`).join('\n')}`);
+  }
+  const draft = parts.filter(Boolean).join('\n\n').trim();
+  return draft || fallback;
 }
 
 async function analyzeAgentInstructions(content: string, title: string, agentMode?: 'procedure' | 'knowledge') {
