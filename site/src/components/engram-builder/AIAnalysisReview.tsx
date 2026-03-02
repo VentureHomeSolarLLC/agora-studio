@@ -46,14 +46,18 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
-      setEditedContent(analysis.beforeAfter.after);
+      const normalized =
+        data.contentType === 'internal'
+          ? normalizeInternalDraft(analysis.beforeAfter.after)
+          : analysis.beforeAfter.after;
+      setEditedContent(normalized);
     }
-  }, [analysis?.beforeAfter?.after]);
+  }, [analysis?.beforeAfter?.after, data.contentType]);
 
   const buildInternalDraft = () => {
     const parts: string[] = [];
     if (data.title) {
-      parts.push(`# ${data.title}`);
+      parts.push(data.title);
     }
     if (data.description) {
       parts.push(data.description.trim());
@@ -61,17 +65,17 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     if (analysis?.sections?.length) {
       analysis.sections.forEach((section: any) => {
         if (!section?.title || !section?.content) return;
-        parts.push(`## ${section.title}\n${section.content}`);
+        parts.push(`${section.title}:\n${section.content}`);
       });
     }
     if (analysis?.technicalDetails?.length) {
-      parts.push(`## Technical Details\n${analysis.technicalDetails.map((item: string) => `- ${item}`).join('\n')}`);
+      parts.push(`Technical Details:\n${analysis.technicalDetails.map((item: string) => `- ${item}`).join('\n')}`);
     }
     if (analysis?.edgeCases?.length) {
-      parts.push(`## Edge Cases\n${analysis.edgeCases.map((item: string) => `- ${item}`).join('\n')}`);
+      parts.push(`Edge Cases:\n${analysis.edgeCases.map((item: string) => `- ${item}`).join('\n')}`);
     }
     if (analysis?.missingContent?.length) {
-      parts.push(`## Missing Info\n${analysis.missingContent.map((item: string) => `- ${item}`).join('\n')}`);
+      parts.push(`Missing Info:\n${analysis.missingContent.map((item: string) => `- ${item}`).join('\n')}`);
     }
     return parts.filter(Boolean).join('\n\n').trim();
   };
@@ -82,9 +86,17 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
   useEffect(() => {
     if (data.contentType === 'internal' && internalDraftWithFallback && !editedContent) {
-      setEditedContent(internalDraftWithFallback);
+      setEditedContent(normalizeInternalDraft(internalDraftWithFallback));
     }
   }, [data.contentType, internalDraftWithFallback, editedContent]);
+
+  const normalizeInternalDraft = (value: string) => {
+    return value
+      .replace(/^#{1,6}\s*/gm, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .trim();
+  };
 
   if (isAnalyzing) {
     return (

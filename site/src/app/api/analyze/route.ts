@@ -591,7 +591,8 @@ Return JSON with:
     engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
   }
 
-For beforeAfter.after, produce a clean internal reference draft. Use Markdown headings and bullet lists where helpful.
+For beforeAfter.after, produce a clean internal reference draft. Avoid Markdown headings (#) and bold/italic markers (** or __).
+Use simple section labels like "Overview:" and "Step 1:" with plain text. Bullet lists are ok, but use full sentences.
 Use procedure mode only when the content describes a repeatable process; otherwise use knowledge.
 Set confidence from 0 to 1, and mark riskLevel as high if using the content without review could cause safety, legal, or financial harm.`
       },
@@ -642,20 +643,20 @@ function ensureInternalBeforeAfter(analysis: any, content: string, title: string
 
 function buildInternalDraftFromAnalysis(analysis: any, title: string, fallback: string) {
   const parts: string[] = [];
-  if (title) parts.push(`# ${title}`);
+  if (title) parts.push(`${title}`);
   const sections = Array.isArray(analysis?.sections) ? analysis.sections : [];
   sections.forEach((section: any) => {
     if (!section?.title || !section?.content) return;
-    parts.push(`## ${section.title}\n${section.content}`);
+    parts.push(`${section.title}:\n${section.content}`);
   });
   if (Array.isArray(analysis?.technicalDetails) && analysis.technicalDetails.length > 0) {
-    parts.push(`## Technical Details\n${analysis.technicalDetails.map((item: string) => `- ${item}`).join('\n')}`);
+    parts.push(`Technical Details:\n${analysis.technicalDetails.map((item: string) => `- ${item}`).join('\n')}`);
   }
   if (Array.isArray(analysis?.edgeCases) && analysis.edgeCases.length > 0) {
-    parts.push(`## Edge Cases\n${analysis.edgeCases.map((item: string) => `- ${item}`).join('\n')}`);
+    parts.push(`Edge Cases:\n${analysis.edgeCases.map((item: string) => `- ${item}`).join('\n')}`);
   }
   if (Array.isArray(analysis?.missingContent) && analysis.missingContent.length > 0) {
-    parts.push(`## Missing Info\n${analysis.missingContent.map((item: string) => `- ${item}`).join('\n')}`);
+    parts.push(`Missing Info:\n${analysis.missingContent.map((item: string) => `- ${item}`).join('\n')}`);
   }
   const draft = parts.filter(Boolean).join('\n\n').trim();
   return draft || fallback;
