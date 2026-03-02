@@ -54,7 +54,7 @@ function collapseKnowledgeModes(
       });
       return map;
     }, new Map<string, AgentEngramModeSuggestion>())
-  );
+  .values());
 
   const knowledgeModes = deduped.filter((mode) => mode.mode === 'knowledge');
   const procedureModes = deduped.filter((mode) => mode.mode === 'procedure');
