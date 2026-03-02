@@ -4,36 +4,10 @@ import matter from "gray-matter";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { EngramMapClient } from "@/components/engram-map/EngramMapClient";
+import type { EngramMap, Line, MapNode, PositionedNode } from "@/components/engram-map/types";
 
 const ENGRAMS_V2_DIR = path.join(process.cwd(), "..", "engrams-v2");
-
-type MapNode = {
-  id: string;
-  title: string;
-  type: "engram" | "concept" | "lesson" | "placeholder";
-};
-
-type EngramMap = {
-  id: string;
-  title: string;
-  description: string;
-  concepts: MapNode[];
-  lessons: MapNode[];
-};
-
-type PositionedNode = MapNode & {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-type Line = {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-};
 
 function getEngramMapData(): EngramMap[] {
   if (!fs.existsSync(ENGRAMS_V2_DIR)) return [];
@@ -181,40 +155,6 @@ function buildLayout(engrams: EngramMap[]) {
   return { nodes, lines, width, height };
 }
 
-function truncateLabel(label: string, max = 28): string {
-  if (label.length <= max) return label;
-  return `${label.slice(0, max - 1)}…`;
-}
-
-function getNodeStyles(type: MapNode["type"]) {
-  switch (type) {
-    case "engram":
-      return {
-        fill: "#ECFDF3",
-        stroke: "#7AEFB1",
-        text: "#0F5F4C",
-      };
-    case "concept":
-      return {
-        fill: "#EFF6FF",
-        stroke: "#93C5FD",
-        text: "#1D4ED8",
-      };
-    case "lesson":
-      return {
-        fill: "#FEF3C7",
-        stroke: "#F59E0B",
-        text: "#92400E",
-      };
-    default:
-      return {
-        fill: "#F3F4F6",
-        stroke: "#D1D5DB",
-        text: "#6B7280",
-      };
-  }
-}
-
 export default async function EngramMapPage() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -232,74 +172,7 @@ export default async function EngramMapPage() {
           A visual map of Engram v2 relationships (skills → concepts → lessons).
         </p>
       </div>
-
-      <div className="flex flex-wrap items-center gap-3 text-xs text-[#231F20]/70 mb-6">
-        <span className="flex items-center gap-2">
-          <span className="inline-block w-3 h-3 rounded-full bg-[#ECFDF3] border border-[#7AEFB1]" />
-          Engram
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="inline-block w-3 h-3 rounded-full bg-[#EFF6FF] border border-[#93C5FD]" />
-          Concept
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="inline-block w-3 h-3 rounded-full bg-[#FEF3C7] border border-[#F59E0B]" />
-          Lesson
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="inline-block w-3 h-3 rounded-full bg-[#F3F4F6] border border-[#D1D5DB]" />
-          Placeholder
-        </span>
-      </div>
-
-      <div className="bg-white border border-[#B1C3BD]/30 rounded-2xl p-4 shadow-sm overflow-x-auto">
-        <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-          className="min-w-[980px]"
-        >
-          <rect width={width} height={height} fill="#FFFFFF" rx={24} />
-          {lines.map((line, index) => (
-            <line
-              key={`line-${index}`}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-              stroke="#CBD5E1"
-              strokeWidth="1.5"
-            />
-          ))}
-          {nodes.map((node) => {
-            const styles = getNodeStyles(node.type);
-            return (
-              <g key={`${node.type}-${node.id}`}>
-                <rect
-                  x={node.x}
-                  y={node.y}
-                  width={node.width}
-                  height={node.height}
-                  rx={12}
-                  fill={styles.fill}
-                  stroke={styles.stroke}
-                  strokeWidth={1.5}
-                />
-                <title>{node.title}</title>
-                <text
-                  x={node.x + 12}
-                  y={node.y + node.height / 2 + 4}
-                  fontSize={12}
-                  fill={styles.text}
-                  fontWeight={node.type === "engram" ? 600 : 500}
-                >
-                  {truncateLabel(node.title)}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+      <EngramMapClient nodes={nodes} lines={lines} width={width} height={height} />
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         {engrams.map((engram) => (
