@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { EngramMapClient } from "@/components/engram-map/EngramMapClient";
-import type { EngramMap, Line, MapNode, PositionedNode } from "@/components/engram-map/types";
+import type { EngramMap, GraphLink, GraphNode, MapNode } from "@/components/engram-map/types";
 
 const ENGRAMS_V2_DIR = path.join(process.cwd(), "..", "engrams-v2");
 const REPO_TREE_BASE = "https://github.com/VentureHomeSolarLLC/agora-studio/tree/main";
@@ -26,6 +26,7 @@ function getEngramMapData(): EngramMap[] {
     const { data } = matter(fs.readFileSync(indexPath, "utf-8"));
     const title = data.title || entry.name;
     const description = data.description || "";
+    const tags = Array.isArray(data.tags) ? data.tags : [];
 
     const conceptsDir = path.join(engramDir, "concepts");
     const lessonsDir = path.join(engramDir, "lessons");
@@ -39,6 +40,7 @@ function getEngramMapData(): EngramMap[] {
       description,
       concepts,
       lessons,
+      tags,
     });
   });
 
@@ -74,6 +76,7 @@ function loadChildNodes(dirPath: string, type: "concept" | "lesson", parentId: s
       const filePath = path.join(dirPath, file);
       const { data } = matter(fs.readFileSync(filePath, "utf-8"));
       const title = data.title || file.replace(/\.md$/, "");
+      const tags = Array.isArray(data.tags) ? data.tags : [];
       const folder = type === "concept" ? "concepts" : "lessons";
       const relativePath = `engrams-v2/${parentId}/${folder}/${file}`;
       return {
@@ -82,96 +85,101 @@ function loadChildNodes(dirPath: string, type: "concept" | "lesson", parentId: s
         type,
         parentId,
         url: `${REPO_BLOB_BASE}/${relativePath}`,
+        tags,
       } as MapNode;
     })
     .sort((a, b) => a.title.localeCompare(b.title));
 }
 
-function buildLayout(engrams: EngramMap[]) {
-  const nodeWidth = 220;
-  const nodeHeight = 44;
-  const itemGap = 64;
-  const rowGap = 56;
-  const engramX = 40;
-  const conceptX = 360;
-  const lessonX = 700;
-
-  const nodes: PositionedNode[] = [];
-  const lines: Line[] = [];
-  let currentY = 40;
+function buildGraph(engrams: EngramMap[]) {
+  const nodes: GraphNode[] = [];
+  const links: GraphLink[] = [];
+  const tagBuckets = new Map<string, GraphNode[]>();
+  const engramNodeIds = new Set<string>();
 
   engrams.forEach((engram) => {
-    const layoutConceptCount = Math.max(engram.concepts.length, 1);
-    const layoutLessonCount = Math.max(engram.lessons.length, 1);
-    const rowItems = Math.max(layoutConceptCount, layoutLessonCount);
-    const rowHeight = rowItems * itemGap;
-    const rowTop = currentY;
-
-    const engramY = rowTop + (rowHeight - nodeHeight) / 2;
+    const engramNodeId = `engram:${engram.id}`;
+    engramNodeIds.add(engramNodeId);
     const conceptCount = engram.concepts.filter((c) => c.type !== "placeholder").length;
     const lessonCount = engram.lessons.filter((l) => l.type !== "placeholder").length;
-    const engramNode: PositionedNode = {
-      id: engram.id,
-      title: engram.title,
+    const engramNode: GraphNode = {
+      id: engramNodeId,
+      name: engram.title,
       type: "engram",
       url: `${REPO_TREE_BASE}/engrams-v2/${engram.id}`,
-      counts: {
-        concepts: conceptCount,
-        lessons: lessonCount,
-      },
-      x: engramX,
-      y: engramY,
-      width: nodeWidth,
-      height: nodeHeight,
+      counts: { concepts: conceptCount, lessons: lessonCount },
+      tags: engram.tags || [],
     };
     nodes.push(engramNode);
 
-    engram.concepts.forEach((concept, index) => {
-      const y = rowTop + index * itemGap;
-      const node: PositionedNode = {
-        ...concept,
-        x: conceptX,
-        y,
-        width: nodeWidth,
-        height: nodeHeight,
-      };
-      nodes.push(node);
-      lines.push({
-        x1: engramX + nodeWidth,
-        y1: engramY + nodeHeight / 2,
-        x2: conceptX,
-        y2: y + nodeHeight / 2,
-        fromId: engram.id,
-        toId: concept.id,
+    const addTagBucket = (node: GraphNode) => {
+      if (!node.tags || node.tags.length === 0) return;
+      node.tags.forEach((tag) => {
+        const key = tag.toLowerCase();
+        const bucket = tagBuckets.get(key) || [];
+        bucket.push(node);
+        tagBuckets.set(key, bucket);
       });
-    });
+    };
 
-    engram.lessons.forEach((lesson, index) => {
-      const y = rowTop + index * itemGap;
-      const node: PositionedNode = {
-        ...lesson,
-        x: lessonX,
-        y,
-        width: nodeWidth,
-        height: nodeHeight,
-      };
-      nodes.push(node);
-      lines.push({
-        x1: engramX + nodeWidth,
-        y1: engramY + nodeHeight / 2,
-        x2: lessonX,
-        y2: y + nodeHeight / 2,
-        fromId: engram.id,
-        toId: lesson.id,
+    engram.concepts
+      .filter((concept) => concept.type !== "placeholder")
+      .forEach((concept) => {
+        const nodeId = `concept:${engram.id}/${concept.id}`;
+        const node: GraphNode = {
+          id: nodeId,
+          name: concept.title,
+          type: "concept",
+          url: concept.url,
+          parentId: engramNodeId,
+          tags: concept.tags || [],
+        };
+        nodes.push(node);
+        links.push({ source: engramNodeId, target: nodeId, type: "structure" });
+        addTagBucket(node);
       });
-    });
 
-    currentY += rowHeight + rowGap;
+    engram.lessons
+      .filter((lesson) => lesson.type !== "placeholder")
+      .forEach((lesson) => {
+        const nodeId = `lesson:${engram.id}/${lesson.id}`;
+        const node: GraphNode = {
+          id: nodeId,
+          name: lesson.title,
+          type: "lesson",
+          url: lesson.url,
+          parentId: engramNodeId,
+          tags: lesson.tags || [],
+        };
+        nodes.push(node);
+        links.push({ source: engramNodeId, target: nodeId, type: "structure" });
+        addTagBucket(node);
+      });
   });
 
-  const width = 980;
-  const height = Math.max(currentY, 300);
-  return { nodes, lines, width, height };
+  const tagLinkSet = new Set<string>();
+  const linkCounts = new Map<string, number>();
+  const MAX_TAG_LINKS = 3;
+
+  tagBuckets.forEach((bucket) => {
+    for (let i = 0; i < bucket.length; i += 1) {
+      for (let j = i + 1; j < bucket.length; j += 1) {
+        const source = bucket[i];
+        const target = bucket[j];
+        const key = [source.id, target.id].sort().join("|");
+        if (tagLinkSet.has(key)) continue;
+        const sourceCount = linkCounts.get(source.id) || 0;
+        const targetCount = linkCounts.get(target.id) || 0;
+        if (sourceCount >= MAX_TAG_LINKS || targetCount >= MAX_TAG_LINKS) continue;
+        tagLinkSet.add(key);
+        links.push({ source: source.id, target: target.id, type: "tag" });
+        linkCounts.set(source.id, sourceCount + 1);
+        linkCounts.set(target.id, targetCount + 1);
+      }
+    }
+  });
+
+  return { nodes, links };
 }
 
 export default async function EngramMapPage() {
@@ -181,7 +189,7 @@ export default async function EngramMapPage() {
   }
 
   const engrams = getEngramMapData();
-  const { nodes, lines, width, height } = buildLayout(engrams);
+  const { nodes, links } = buildGraph(engrams);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -191,7 +199,7 @@ export default async function EngramMapPage() {
           A visual map of Engram v2 relationships (skills → concepts → lessons).
         </p>
       </div>
-      <EngramMapClient nodes={nodes} lines={lines} width={width} height={height} />
+      <EngramMapClient nodes={nodes} links={links} />
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         {engrams.map((engram) => (

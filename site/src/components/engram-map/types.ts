@@ -8,6 +8,7 @@ export type MapNode = {
     concepts: number;
     lessons: number;
   };
+  tags?: string[];
 };
 
 export type EngramMap = {
@@ -16,6 +17,7 @@ export type EngramMap = {
   description: string;
   concepts: MapNode[];
   lessons: MapNode[];
+  tags?: string[];
 };
 
 export type PositionedNode = MapNode & {
@@ -32,4 +34,25 @@ export type Line = {
   y2: number;
   fromId: string;
   toId: string;
+};
+
+export type GraphNode = {
+  id: string;
+  name: string;
+  type: "engram" | "concept" | "lesson";
+  url?: string;
+  parentId?: string;
+  tags?: string[];
+  x?: number;
+  y?: number;
+  counts?: {
+    concepts: number;
+    lessons: number;
+  };
+};
+
+export type GraphLink = {
+  source: string;
+  target: string;
+  type: "structure" | "tag";
 };
