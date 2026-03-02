@@ -206,7 +206,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
   const setAllExtraction = (include: boolean) => {
     if (!extraction) return;
-    updateExtraction({
+    const nextExtraction = {
       concepts: extraction.concepts.map((c) => ({
         ...c,
         include: c.duplicate?.similar ? false : include,
@@ -215,6 +215,14 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         ...l,
         include: l.duplicate?.similar ? false : include,
       })),
+    };
+    const nextModes = (data.agentEngramModes || []).map((mode) => ({
+      ...mode,
+      include,
+    }));
+    onChange({
+      agentExtraction: nextExtraction,
+      agentEngramModes: nextModes,
     });
   };
 
@@ -482,7 +490,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
       {renderDuplicateCheck()}
 
-      {data.contentType === 'internal' && (
+      {data.contentType === 'internal' && !analysis?.beforeAfter?.after && (
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-medium text-gray-900">Internal Draft Preview</h3>

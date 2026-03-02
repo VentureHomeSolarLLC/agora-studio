@@ -544,6 +544,7 @@ async function analyzeInternalContent(content: string, title: string) {
         content: `Analyze internal docs for the Venture Home team.
 
 Return JSON with:
+- beforeAfter: {before, after}
 - sections: [{title, content}]
 - technicalDetails: array
 - edgeCases: array
@@ -556,6 +557,7 @@ Return JSON with:
     engramModes: [{forEngram: string, mode: procedure | knowledge, rationale: string}]
   }
 
+For beforeAfter.after, produce a clean internal reference draft. Use Markdown headings and bullet lists where helpful.
 Use procedure mode only when the content describes a repeatable process; otherwise use knowledge.
 Set confidence from 0 to 1, and mark riskLevel as high if using the content without review could cause safety, legal, or financial harm.`
       },
