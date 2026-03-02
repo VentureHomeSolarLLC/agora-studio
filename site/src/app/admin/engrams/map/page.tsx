@@ -101,9 +101,9 @@ function buildLayout(engrams: EngramMap[]) {
   let currentY = 40;
 
   engrams.forEach((engram) => {
-    const conceptCount = Math.max(engram.concepts.length, 1);
-    const lessonCount = Math.max(engram.lessons.length, 1);
-    const rowItems = Math.max(conceptCount, lessonCount);
+    const layoutConceptCount = Math.max(engram.concepts.length, 1);
+    const layoutLessonCount = Math.max(engram.lessons.length, 1);
+    const rowItems = Math.max(layoutConceptCount, layoutLessonCount);
     const rowHeight = rowItems * itemGap;
     const rowTop = currentY;
 
