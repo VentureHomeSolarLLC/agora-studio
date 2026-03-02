@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { EngramFormData, ContentType, CONTENT_TYPE_CONFIG } from '@/types/engram';
+import { EngramFormData, ContentType, CONTENT_TYPE_CONFIG, AgentEngramModeSuggestion } from '@/types/engram';
 import { StepIndicator } from '@/components/engram-builder/StepIndicator';
 import { ContentTypeSelector } from '@/components/engram-builder/ContentTypeSelector';
 import { BasicInfoForm } from '@/components/engram-builder/BasicInfoForm';
@@ -200,7 +200,7 @@ export default function NewEngramPage() {
             });
             return map;
           }, new Map<string, any>())
-        .values());
+        .values()) as AgentEngramModeSuggestion[];
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: {
@@ -264,7 +264,7 @@ export default function NewEngramPage() {
             });
             return map;
           }, new Map<string, any>())
-        .values());
+        .values()) as AgentEngramModeSuggestion[];
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: {
