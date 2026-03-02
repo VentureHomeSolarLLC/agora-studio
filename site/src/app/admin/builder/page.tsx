@@ -160,7 +160,7 @@ function BuilderContent() {
               </Link>
               <h1 className="text-xl font-bold text-[#231F20] flex items-center gap-2">
                 <Layout className="w-6 h-6 text-[#F7FF96]" />
-                Page Builder
+                Wiki Builder
               </h1>
             </div>
             <div className="flex gap-3">

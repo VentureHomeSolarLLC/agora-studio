@@ -71,7 +71,7 @@ export function Navigation() {
                   href="/admin/builder"
                   className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
                 >
-                  Builder
+                  Wiki Builder
                 </Link>
                 <Link
                   href="/browse"
