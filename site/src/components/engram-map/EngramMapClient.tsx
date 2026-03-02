@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
+import ForceGraph3D, { ForceGraphMethods } from "react-force-graph-3d";
 import type { GraphLink, GraphNode } from "@/components/engram-map/types";
 
 const NODE_STYLE = {
@@ -11,25 +11,30 @@ const NODE_STYLE = {
 };
 
 const LINK_STYLE = {
-  structure: "rgba(148, 163, 184, 0.7)",
+  structure: "rgba(148, 163, 184, 0.55)",
   tag: "rgba(167, 139, 250, 0.35)",
 };
 
-const BASE_RADIUS = {
-  engram: 12,
-  concept: 9,
-  lesson: 8,
+const BASE_VALUE = {
+  engram: 9,
+  concept: 6,
+  lesson: 5,
 };
 
-const ZOOM_STEP = 0.2;
+const ZOOM_STEP = 1.2;
 
 type EngramMapClientProps = {
   nodes: GraphNode[];
   links: GraphLink[];
 };
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
+function resolveNodeId(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && "id" in (value as any)) {
+    return String((value as any).id);
+  }
+  return "";
 }
 
 export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
@@ -39,7 +44,7 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [showTagLinks, setShowTagLinks] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [zoom, setZoom] = useState(1);
+  const [autoRotate, setAutoRotate] = useState(true);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -55,20 +60,34 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
 
   useEffect(() => {
     if (!fgRef.current) return;
-    fgRef.current.d3Force("charge")?.strength(-140);
+    fgRef.current.d3Force("charge")?.strength(-120);
     fgRef.current.d3Force("link")?.distance((link: any) =>
-      link.type === "tag" ? 160 : 110
+      link.type === "tag" ? 190 : 130
     );
     fgRef.current.d3Force("center")?.strength(0.3);
   }, [nodes.length, links.length]);
 
   useEffect(() => {
     if (!fgRef.current) return;
+    const controls = (fgRef.current as any)?.controls?.();
+    if (!controls) return;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = 0.6;
+    controls.autoRotate = autoRotate;
+    controls.autoRotateSpeed = 0.6;
+    controls.minDistance = 80;
+    controls.maxDistance = 1400;
+    controls.update();
+  }, [autoRotate]);
+
+  useEffect(() => {
+    if (!fgRef.current) return;
     const timer = setTimeout(() => {
-      fgRef.current?.zoomToFit(400, 80);
-    }, 250);
+      fgRef.current?.zoomToFit(600, 120);
+    }, 300);
     return () => clearTimeout(timer);
-  }, [dimensions.width, dimensions.height]);
+  }, [dimensions.width, dimensions.height, nodes.length, links.length]);
 
   const filteredLinks = useMemo(() => {
     if (showTagLinks) return links;
@@ -92,73 +111,54 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
     window.open(node.url, "_blank", "noopener,noreferrer");
   };
 
-  const drawNode = (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const style = NODE_STYLE[node.type];
-    const radius = BASE_RADIUS[node.type] * (node.type === "engram" ? 1.25 : 1);
-    const isMatch = normalizedQuery && matchingIds.has(node.id);
-    const isDim = normalizedQuery && !isMatch;
-    const x = node.x ?? 0;
-    const y = node.y ?? 0;
+  const nodeColor = (node: GraphNode) => {
+    if (!normalizedQuery) return NODE_STYLE[node.type].fill;
+    return matchingIds.has(node.id) ? "#22C55E" : "#D1D5DB";
+  };
 
-    const gradient = ctx.createRadialGradient(
-      x - radius / 3,
-      y - radius / 3,
-      radius / 4,
-      x,
-      y,
-      radius
-    );
-    gradient.addColorStop(0, "#FFFFFF");
-    gradient.addColorStop(0.3, style.fill);
-    gradient.addColorStop(1, style.stroke);
+  const nodeVal = (node: GraphNode) => {
+    const base = BASE_VALUE[node.type] ?? 6;
+    if (!normalizedQuery) return base;
+    return matchingIds.has(node.id) ? base * 1.35 : base * 0.7;
+  };
 
-    ctx.save();
-    ctx.globalAlpha = isDim ? 0.25 : 1;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, 2 * Math.PI);
-    ctx.fillStyle = gradient;
-    ctx.shadowColor = "rgba(0,0,0,0.15)";
-    ctx.shadowBlur = 10;
-    ctx.fill();
-    ctx.lineWidth = isMatch ? 2.5 : 1.2;
-    ctx.strokeStyle = style.stroke;
-    ctx.stroke();
-    ctx.restore();
-
-    const labelThreshold = 1.05;
-    if (globalScale >= labelThreshold || node === hoveredNode) {
-      const fontSize = clamp(14 / globalScale, 10, 16);
-      ctx.font = `${fontSize}px "Inter", system-ui, -apple-system, sans-serif`;
-      ctx.fillStyle = "#1F2937";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillText(node.name, x, y + radius + 6);
+  const linkColor = (link: GraphLink & { source: any; target: any }) => {
+    const base = LINK_STYLE[link.type as "structure" | "tag"] || LINK_STYLE.structure;
+    if (!normalizedQuery) return base;
+    const sourceId = resolveNodeId(link.source);
+    const targetId = resolveNodeId(link.target);
+    if (matchingIds.has(sourceId) || matchingIds.has(targetId)) {
+      return link.type === "tag" ? "rgba(34, 197, 94, 0.45)" : "rgba(15, 95, 76, 0.55)";
     }
+    return "rgba(148, 163, 184, 0.2)";
   };
 
-  const drawLink = (link: GraphLink & { source: any; target: any }, ctx: CanvasRenderingContext2D) => {
-    const color = LINK_STYLE[link.type as "structure" | "tag"] || LINK_STYLE.structure;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = link.type === "tag" ? 0.8 : 1.2;
-  };
+  const linkWidth = (link: GraphLink) => (link.type === "tag" ? 0.6 : 1.4);
 
   const zoomIn = () => {
-    if (!fgRef.current) return;
-    fgRef.current.zoom(zoom * (1 + ZOOM_STEP), 200);
+    const controls = (fgRef.current as any)?.controls?.();
+    if (!controls) return;
+    controls.dollyIn(ZOOM_STEP);
+    controls.update();
   };
 
   const zoomOut = () => {
-    if (!fgRef.current) return;
-    fgRef.current.zoom(zoom * (1 - ZOOM_STEP), 200);
+    const controls = (fgRef.current as any)?.controls?.();
+    if (!controls) return;
+    controls.dollyOut(ZOOM_STEP);
+    controls.update();
   };
 
   const fitGraph = () => {
-    fgRef.current?.zoomToFit(400, 80);
+    fgRef.current?.zoomToFit(600, 120);
   };
 
   const resetGraph = () => {
-    fgRef.current?.centerAt(0, 0, 400);
-    fgRef.current?.zoom(1, 400);
+    fgRef.current?.cameraPosition(
+      { x: 0, y: 0, z: 420 },
+      { x: 0, y: 0, z: 0 },
+      800
+    );
   };
 
   return (
@@ -178,7 +178,7 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
             Lesson
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={zoomOut}
@@ -186,7 +186,6 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
           >
             −
           </button>
-          <span className="text-xs min-w-[52px] text-center">{Math.round(zoom * 100)}%</span>
           <button
             type="button"
             onClick={zoomIn}
@@ -211,7 +210,7 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
         <label className="flex items-center gap-2 text-xs text-[#231F20]/70">
           <input
             type="checkbox"
@@ -219,6 +218,14 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
             onChange={(event) => setShowTagLinks(event.target.checked)}
           />
           Show tag connections
+        </label>
+        <label className="flex items-center gap-2 text-xs text-[#231F20]/70">
+          <input
+            type="checkbox"
+            checked={autoRotate}
+            onChange={(event) => setAutoRotate(event.target.checked)}
+          />
+          Auto-rotate
         </label>
         <input
           type="search"
@@ -228,24 +235,33 @@ export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
           className="w-full max-w-xs rounded-lg border border-[#B1C3BD]/40 bg-white px-3 py-2 text-sm text-[#231F20] placeholder:text-[#231F20]/40 focus:border-[#7AEFB1] focus:outline-none"
         />
       </div>
+      <p className="mb-4 text-xs text-[#231F20]/55">
+        Drag to rotate · Scroll to zoom · Shift + drag to pan
+      </p>
 
       <div
         ref={containerRef}
-        className="relative overflow-hidden rounded-2xl border border-[#E6ECE8] bg-[#FBFBF6] h-[600px]"
+        className="relative overflow-hidden rounded-2xl border border-[#E6ECE8] bg-[#FBFBF6] h-[620px]"
       >
-        <ForceGraph2D<GraphNode, GraphLink>
+        <ForceGraph3D<GraphNode, GraphLink>
           ref={fgRef}
           width={dimensions.width}
           height={dimensions.height}
           graphData={graphData}
           backgroundColor="#FBFBF6"
-          linkDirectionalParticles={0}
-          nodeRelSize={4}
-          nodeCanvasObject={drawNode}
-          linkCanvasObject={drawLink}
+          nodeColor={nodeColor}
+          nodeVal={nodeVal}
+          nodeOpacity={0.95}
+          nodeLabel={(node) => `${node.name} (${node.type})`}
+          linkColor={linkColor}
+          linkWidth={linkWidth}
+          linkDirectionalParticles={(link) => (link.type === "tag" ? 2 : 0)}
+          linkDirectionalParticleWidth={1.6}
+          linkDirectionalParticleSpeed={0.0025}
+          linkOpacity={0.65}
+          linkCurvature={(link) => (link.type === "tag" ? 0.18 : 0.04)}
           onNodeHover={(node) => setHoveredNode(node ? (node as GraphNode) : null)}
           onNodeClick={(node) => handleNodeClick(node as GraphNode)}
-          onZoom={(transform) => setZoom(transform.k)}
         />
         {hoveredNode && (
           <div className="absolute left-4 bottom-4 rounded-xl border border-[#B1C3BD]/40 bg-white px-3 py-2 text-xs text-[#231F20] shadow-lg">

@@ -45,6 +45,7 @@ export type GraphNode = {
   tags?: string[];
   x?: number;
   y?: number;
+  z?: number;
   counts?: {
     concepts: number;
     lessons: number;

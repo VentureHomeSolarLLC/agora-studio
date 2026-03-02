@@ -19,10 +19,12 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-force-graph-2d": "^1.24.3",
+    "react-force-graph-3d": "^1.29.1",
     "rehype-highlight": "^7.0.2",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
-    "remark-html": "^16.0.1"
+    "remark-html": "^16.0.1",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

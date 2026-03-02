@@ -122,6 +122,8 @@ function buildGraph(engrams: EngramMap[]) {
       });
     };
 
+    addTagBucket(engramNode);
+
     engram.concepts
       .filter((concept) => concept.type !== "placeholder")
       .forEach((concept) => {
@@ -159,7 +161,7 @@ function buildGraph(engrams: EngramMap[]) {
 
   const tagLinkSet = new Set<string>();
   const linkCounts = new Map<string, number>();
-  const MAX_TAG_LINKS = 3;
+  const MAX_TAG_LINKS = 5;
 
   tagBuckets.forEach((bucket) => {
     for (let i = 0; i < bucket.length; i += 1) {
