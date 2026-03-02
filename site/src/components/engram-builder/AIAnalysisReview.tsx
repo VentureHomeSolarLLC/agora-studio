@@ -227,20 +227,30 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   };
   const readability = getReadability();
 
+  const getDuplicateDisplayThreshold = () => {
+    if (data.contentType === 'customer' || data.contentType === 'internal') {
+      return 0.5;
+    }
+    return 0.25;
+  };
+
   const renderDuplicateCheck = () => {
     if (!duplicateCheck) return null;
+    const displayThreshold = getDuplicateDisplayThreshold();
+    const filteredMatches = duplicateCheck.matches.filter((match) => match.score >= displayThreshold);
+    const similar = filteredMatches.length > 0 && filteredMatches[0].score >= displayThreshold;
     return (
-      <div className={`rounded-lg p-4 border ${duplicateCheck.similar ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
-        <h3 className={`font-medium mb-2 ${duplicateCheck.similar ? 'text-yellow-900' : 'text-green-900'}`}>
-          {duplicateCheck.similar ? 'Potential duplicates found' : 'No close duplicates detected'}
+      <div className={`rounded-lg p-4 border ${similar ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
+        <h3 className={`font-medium mb-2 ${similar ? 'text-yellow-900' : 'text-green-900'}`}>
+          {similar ? 'Potential duplicates found' : 'No close duplicates detected'}
         </h3>
-        {duplicateCheck.matches.length === 0 ? (
-          <p className={`text-sm ${duplicateCheck.similar ? 'text-yellow-800' : 'text-green-800'}`}>
+        {filteredMatches.length === 0 ? (
+          <p className={`text-sm ${similar ? 'text-yellow-800' : 'text-green-800'}`}>
             We didn&apos;t find anything very similar in the library.
           </p>
         ) : (
           <div className="space-y-3">
-            {duplicateCheck.matches.map((match, i) => (
+            {filteredMatches.map((match, i) => (
               <div key={`${match.path}-${i}`} className="bg-white border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium text-gray-900">{match.title}</p>
@@ -282,7 +292,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 </div>
               </div>
             ))}
-            <p className={`text-xs ${duplicateCheck.similar ? 'text-yellow-700' : 'text-green-700'}`}>
+            <p className={`text-xs ${similar ? 'text-yellow-700' : 'text-green-700'}`}>
               If this overlaps heavily, consider updating the existing content instead of publishing a new page.
             </p>
           </div>
@@ -436,6 +446,17 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
       {renderDuplicateCheck()}
 
+      {data.contentType === 'internal' && data.rawContent && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium text-gray-900">Internal Draft Preview</h3>
+          </div>
+          <div className="text-sm text-gray-700 whitespace-pre-wrap border-t border-gray-100 pt-3">
+            {data.rawContent}
+          </div>
+        </div>
+      )}
+
       {extraction && (extraction.concepts.length > 0 || extraction.lessons.length > 0) && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between gap-4 mb-3">
@@ -470,6 +491,19 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 {data.agentEngramModes?.map((mode, idx) => (
                   <div key={`${mode.engramId}-${idx}`} className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 text-xs text-blue-700">
+                        <input
+                          type="checkbox"
+                          checked={mode.include !== false}
+                          onChange={(e) => {
+                            const next = (data.agentEngramModes || []).map((entry, index) =>
+                              index === idx ? { ...entry, include: e.target.checked } : entry
+                            );
+                            onChange({ agentEngramModes: next });
+                          }}
+                        />
+                        Use
+                      </label>
                       <span className="font-medium">{mode.label || mode.engramId}</span>
                       <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                         {mode.mode === 'procedure' ? 'Procedure' : 'Knowledge'}

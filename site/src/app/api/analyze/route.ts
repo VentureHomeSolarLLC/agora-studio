@@ -483,8 +483,9 @@ function findDuplicatesForText(
 
 async function checkForDuplicates(title: string, content: string, contentType: string) {
   const allowed = getAllowedTypes(contentType);
-  const similarThreshold = contentType === 'customer' ? 0.5 : 0.25;
-  return findDuplicatesForText(title, content, allowed, { similarThreshold });
+  const similarThreshold = contentType === 'customer' || contentType === 'internal' ? 0.5 : 0.25;
+  const matchThreshold = similarThreshold;
+  return findDuplicatesForText(title, content, allowed, { similarThreshold, matchThreshold });
 }
 
 async function analyzeCustomerContent(content: string, title: string) {

@@ -184,6 +184,7 @@ export default function NewEngramPage() {
           label: mode.forEngram || formData.title || fallbackId,
           mode: mode.mode === 'procedure' ? 'procedure' : 'knowledge',
           rationale: mode.rationale,
+          include: true,
         }));
         updateFormData({
           aiAnalysis: analysis,
@@ -232,6 +233,7 @@ export default function NewEngramPage() {
           label: mode.forEngram || formData.title || fallbackId,
           mode: mode.mode === 'procedure' ? 'procedure' : 'knowledge',
           rationale: mode.rationale,
+          include: true,
         }));
         updateFormData({
           aiAnalysis: analysis,

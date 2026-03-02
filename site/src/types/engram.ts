@@ -99,6 +99,7 @@ export interface AgentEngramModeSuggestion {
   label?: string;
   mode: AgentSkillMode;
   rationale?: string;
+  include?: boolean;
 }
 
 export interface EngramFormData {

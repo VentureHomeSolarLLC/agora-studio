@@ -36,7 +36,9 @@ export function transformToEngram(formData: EngramFormData) {
       hash: computeSourceHash(formData.title || engramId, formData.rawContent || ''),
     };
     const modeLookup = new Map(
-      (formData.agentEngramModes || []).map((entry) => [entry.engramId, entry.mode])
+      (formData.agentEngramModes || [])
+        .filter((entry) => entry.include !== false)
+        .map((entry) => [entry.engramId, entry.mode])
     );
 
     for (const [targetEngramId, group] of grouped.entries()) {
