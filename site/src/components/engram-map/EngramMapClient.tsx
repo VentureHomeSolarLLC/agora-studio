@@ -38,7 +38,7 @@ function resolveNodeId(value: unknown): string {
 }
 
 export function EngramMapClient({ nodes, links }: EngramMapClientProps) {
-  const fgRef = useRef<ForceGraphMethods<GraphNode, GraphLink>>();
+  const fgRef = useRef<ForceGraphMethods<GraphNode, GraphLink> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
