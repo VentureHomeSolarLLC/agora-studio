@@ -50,6 +50,42 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     }
   }, [analysis?.beforeAfter?.after]);
 
+  const buildInternalDraft = () => {
+    const parts: string[] = [];
+    if (data.title) {
+      parts.push(`# ${data.title}`);
+    }
+    if (data.description) {
+      parts.push(data.description.trim());
+    }
+    if (analysis?.sections?.length) {
+      analysis.sections.forEach((section: any) => {
+        if (!section?.title || !section?.content) return;
+        parts.push(`## ${section.title}\n${section.content}`);
+      });
+    }
+    if (analysis?.technicalDetails?.length) {
+      parts.push(`## Technical Details\n${analysis.technicalDetails.map((item: string) => `- ${item}`).join('\n')}`);
+    }
+    if (analysis?.edgeCases?.length) {
+      parts.push(`## Edge Cases\n${analysis.edgeCases.map((item: string) => `- ${item}`).join('\n')}`);
+    }
+    if (analysis?.missingContent?.length) {
+      parts.push(`## Missing Info\n${analysis.missingContent.map((item: string) => `- ${item}`).join('\n')}`);
+    }
+    return parts.filter(Boolean).join('\n\n').trim();
+  };
+
+  const internalDraft = data.contentType === 'internal' && analysis ? buildInternalDraft() : '';
+  const internalDraftWithFallback =
+    data.contentType === 'internal' ? (internalDraft || data.rawContent || '') : '';
+
+  useEffect(() => {
+    if (data.contentType === 'internal' && internalDraftWithFallback && !editedContent) {
+      setEditedContent(internalDraftWithFallback);
+    }
+  }, [data.contentType, internalDraftWithFallback, editedContent]);
+
   if (isAnalyzing) {
     return (
       <div className="space-y-6 text-center py-12">
@@ -446,14 +482,27 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
       {renderDuplicateCheck()}
 
-      {data.contentType === 'internal' && data.rawContent && (
+      {data.contentType === 'internal' && (
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-medium text-gray-900">Internal Draft Preview</h3>
+            <span className="text-xs text-gray-500">Click to edit</span>
           </div>
-          <div className="text-sm text-gray-700 whitespace-pre-wrap border-t border-gray-100 pt-3">
-            {data.rawContent}
-          </div>
+          <textarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            rows={12}
+            className="w-full p-3 border border-gray-200 rounded text-sm font-mono bg-white focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+            disabled={versionLocked}
+          />
+          {data.rawContent && (
+            <details className="mt-3">
+              <summary className="text-xs text-blue-700 cursor-pointer">View original notes</summary>
+              <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap border-t border-gray-100 pt-2">
+                {data.rawContent}
+              </div>
+            </details>
+          )}
         </div>
       )}
 
