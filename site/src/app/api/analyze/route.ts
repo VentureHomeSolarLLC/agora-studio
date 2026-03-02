@@ -488,6 +488,26 @@ async function checkForDuplicates(title: string, content: string, contentType: s
   return findDuplicatesForText(title, content, allowed, { similarThreshold, matchThreshold });
 }
 
+function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    const first = raw.indexOf('{');
+    const last = raw.lastIndexOf('}');
+    if (first !== -1 && last !== -1 && last > first) {
+      const candidate = raw.slice(first, last + 1);
+      try {
+        return JSON.parse(candidate) as T;
+      } catch (err) {
+        console.warn('Failed to parse cleaned AI JSON:', err);
+      }
+    }
+    console.warn('Failed to parse AI JSON response. Returning fallback.');
+    return fallback;
+  }
+}
+
 async function analyzeCustomerContent(content: string, title: string) {
   const response = await openai.chat.completions.create({
     model: 'gpt-4-turbo-preview',
@@ -532,7 +552,21 @@ Set confidence from 0 to 1, and mark riskLevel as high if using the content with
     max_tokens: 4000,
   });
 
-  return JSON.parse(response.choices[0].message.content || '{}');
+  const raw = response.choices[0].message.content;
+  return safeParseJson(raw, {
+    keyPoints: [],
+    readability: { gradeLevel: 'unknown', score: 0, issues: [] },
+    beforeAfter: { before: content, after: content },
+    missingContentSections: [],
+    agentTrainingPotential: {
+      hasExtractableContent: false,
+      suggestedConcepts: [],
+      suggestedLessons: [],
+      engramModes: [],
+    },
+    suggestedTags: [],
+    warnings: ['AI response parsing failed. Using original content.'],
+  });
 }
 
 async function analyzeInternalContent(content: string, title: string) {
@@ -571,7 +605,21 @@ Set confidence from 0 to 1, and mark riskLevel as high if using the content with
     max_tokens: 4000,
   });
 
-  return JSON.parse(response.choices[0].message.content || '{}');
+  const raw = response.choices[0].message.content;
+  return safeParseJson(raw, {
+    beforeAfter: { before: content, after: content },
+    sections: content ? [{ title: 'Overview', content }] : [],
+    technicalDetails: [],
+    edgeCases: [],
+    missingContent: [],
+    suggestedTags: [],
+    agentTrainingPotential: {
+      hasExtractableContent: false,
+      suggestedConcepts: [],
+      suggestedLessons: [],
+      engramModes: [],
+    },
+  });
 }
 
 async function analyzeAgentInstructions(content: string, title: string, agentMode?: 'procedure' | 'knowledge') {
@@ -627,5 +675,28 @@ Guidelines:
     max_tokens: 4000,
   });
 
-  return JSON.parse(response.choices[0].message.content || '{}');
+  const raw = response.choices[0].message.content;
+  return safeParseJson(raw, {
+    skill: {
+      name: title,
+      type: agentMode === 'knowledge' ? 'knowledge' : 'procedural',
+      domain: '',
+      subdomains: [],
+      triggerQuestions: [],
+      outcome: '',
+      riskLevel: 'medium',
+      triggers: [],
+      requiredInputs: [],
+      constraints: [],
+      allowedSystems: [],
+      escalationCriteria: [],
+      stopConditions: [],
+      prerequisites: [],
+      steps: [],
+    },
+    concepts: [],
+    lessons: [],
+    suggestedTags: [],
+    warnings: ['AI response parsing failed.'],
+  });
 }
