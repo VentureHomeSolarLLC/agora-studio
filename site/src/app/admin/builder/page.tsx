@@ -8,7 +8,9 @@ import { ArrowLeft, Plus, GripVertical, Trash2, Eye, Save, Layout, Search, Spark
 
 interface PageSection {
   id: string;
-  conceptId: string;
+  sourceId: string;
+  sourcePath: string;
+  sourceType: string;
   title: string;
 }
 
@@ -19,10 +21,12 @@ interface PageData {
   sections: PageSection[];
 }
 
-interface Concept {
-  slug: string;
-  concept_id: string;
+interface WikiSource {
+  id: string;
+  path: string;
   title: string;
+  type: string;
+  collection: string;
   tags: string[];
   excerpt?: string;
 }
@@ -34,7 +38,7 @@ function BuilderContent() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [newConceptBanner, setNewConceptBanner] = useState<{id: string, title: string} | null>(null);
-  const [availableConcepts, setAvailableConcepts] = useState<Concept[]>([]);
+  const [availableSources, setAvailableSources] = useState<WikiSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageData, setPageData] = useState<PageData>({
     title: "",
@@ -43,30 +47,30 @@ function BuilderContent() {
     sections: [],
   });
 
-  // Fetch concepts - all initially, then search via API
+  // Fetch markdown sources - all initially, then search via API
   useEffect(() => {
-    const fetchConcepts = async () => {
+    const fetchSources = async () => {
       setIsLoading(true);
       try {
         const url = searchQuery 
-          ? `/api/concepts?q=${encodeURIComponent(searchQuery)}`
-          : "/api/concepts";
+          ? `/api/wiki-sources?q=${encodeURIComponent(searchQuery)}`
+          : "/api/wiki-sources";
         const res = await fetch(url);
         const data = await res.json();
-        setAvailableConcepts(data.concepts || []);
+        setAvailableSources(data.sources || []);
       } catch (err) {
-        console.error("Failed to fetch concepts:", err);
+        console.error("Failed to fetch sources:", err);
       } finally {
         setIsLoading(false);
       }
     };
     
     // Debounce search
-    const timeout = setTimeout(fetchConcepts, searchQuery ? 300 : 0);
+    const timeout = setTimeout(fetchSources, searchQuery ? 300 : 0);
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // Check for newly created concept from query params
+  // Check for newly created source from query params (legacy support)
   useEffect(() => {
     const addConcept = searchParams.get("addConcept");
     const conceptTitle = searchParams.get("conceptTitle");
@@ -79,7 +83,9 @@ function BuilderContent() {
           ...prev.sections,
           {
             id: `${addConcept}-${Date.now()}`,
-            conceptId: addConcept,
+            sourceId: addConcept,
+            sourcePath: addConcept,
+            sourceType: "legacy",
             title: conceptTitle,
           },
         ],
@@ -100,18 +106,20 @@ function BuilderContent() {
     return null;
   }
 
-  // Concepts are already filtered by the API based on searchQuery
-  const filteredConcepts = availableConcepts;
+  // Sources are already filtered by the API based on searchQuery
+  const filteredSources = availableSources;
 
-  const addSection = (concept: Concept) => {
+  const addSection = (source: WikiSource) => {
     setPageData(prev => ({
       ...prev,
       sections: [
         ...prev.sections,
         {
-          id: `${concept.slug}-${Date.now()}`,
-          conceptId: concept.slug,
-          title: concept.title,
+          id: `${source.id}-${Date.now()}`,
+          sourceId: source.id,
+          sourcePath: source.path,
+          sourceType: source.type,
+          title: source.title,
         },
       ],
     }));
@@ -257,7 +265,7 @@ function BuilderContent() {
               {pageData.sections.length === 0 ? (
                 <div className="text-center py-8 text-[#231F20]/50">
                   <Layout className="w-12 h-12 mx-auto mb-3" />
-                  <p>Drag articles from the right to build your page</p>
+                  <p>Add markdown from the right to build your page</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -268,9 +276,14 @@ function BuilderContent() {
                     >
                       <GripVertical className="w-5 h-5 text-[#231F20]/30" />
                       <span className="text-sm text-[#231F20]/50 w-8">{index + 1}</span>
-                      <span className="flex-1 font-medium text-[#231F20]">
-                        {section.title}
-                      </span>
+                      <div className="flex-1">
+                        <span className="font-medium text-[#231F20] block">
+                          {section.title}
+                        </span>
+                        <span className="text-xs text-[#231F20]/50">
+                          {section.sourceType} · {section.sourcePath}
+                        </span>
+                      </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => moveSection(index, "up")}
@@ -302,10 +315,10 @@ function BuilderContent() {
 
           {/* Right: Available Articles */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-[#B1C3BD]/30">
-            <h2 className="text-lg font-semibold text-[#231F20] mb-4 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#7AEFB1]" />
-              Add Articles
-            </h2>
+              <h2 className="text-lg font-semibold text-[#231F20] mb-4 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-[#7AEFB1]" />
+                Add Markdown
+              </h2>
             
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#231F20]/40" />
@@ -313,7 +326,7 @@ function BuilderContent() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search articles..."
+                placeholder="Search markdown..."
                 className="w-full pl-10 pr-4 py-2 border border-[#B1C3BD]/30 rounded-lg focus:border-[#F7FF96] focus:outline-none"
               />
             </div>
@@ -325,30 +338,39 @@ function BuilderContent() {
               </div>
             ) : (
               <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {filteredConcepts.map((concept) => (
+                {filteredSources.map((source) => (
                   <button
-                    key={concept.slug}
-                    onClick={() => addSection(concept)}
+                    key={source.id}
+                    onClick={() => addSection(source)}
                     className="w-full text-left p-3 rounded-lg border border-[#B1C3BD]/30 hover:border-[#7AEFB1] hover:bg-[#7AEFB1]/10 transition-colors group"
                   >
                     <div className="flex items-start gap-2">
                       <Plus className="w-4 h-4 text-[#7AEFB1] opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
                       <div className="flex-1">
-                        <span className="text-sm text-[#231F20] font-medium block">{concept.title}</span>
+                        <span className="text-sm text-[#231F20] font-medium block">{source.title}</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {concept.tags.slice(0, 3).map(tag => (
+                          <span className="text-[10px] uppercase tracking-wide bg-[#231F20] text-white px-2 py-0.5 rounded-full">
+                            {source.collection}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wide bg-[#F3F3EA] text-[#231F20]/70 px-2 py-0.5 rounded-full">
+                            {source.type.replace(/_/g, " ")}
+                          </span>
+                          {source.tags.slice(0, 2).map(tag => (
                             <span key={tag} className="text-xs bg-[#F3F3EA] text-[#231F20]/50 px-2 py-0.5 rounded-full">
                               {tag}
                             </span>
                           ))}
                         </div>
+                        <p className="text-xs text-[#231F20]/40 mt-1 truncate">
+                          {source.path}
+                        </p>
                       </div>
                     </div>
                   </button>
                 ))}
-                {filteredConcepts.length === 0 && (
+                {filteredSources.length === 0 && (
                   <div className="text-center text-[#231F20]/50 py-4">
-                    <p>No articles found</p>
+                    <p>No markdown found</p>
                     {searchQuery && (
                       <p className="text-sm mt-1">Try a different search term</p>
                     )}
