@@ -63,6 +63,8 @@ export function EngramMapClient({ nodes, lines, width, height }: EngramMapClient
   const panStart = useRef<Point>({ x: 0, y: 0 });
   const panOrigin = useRef<Point>({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [hoveredNode, setHoveredNode] = useState<PositionedNode | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -111,6 +113,8 @@ export function EngramMapClient({ nodes, lines, width, height }: EngramMapClient
 
   const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
+    const target = event.target as Element | null;
+    if (target && target.closest("[data-node='true']")) return;
     setIsPanning(true);
     panStart.current = { x: event.clientX, y: event.clientY };
     panOrigin.current = { ...translate };
@@ -133,6 +137,40 @@ export function EngramMapClient({ nodes, lines, width, height }: EngramMapClient
   };
 
   const formattedScale = useMemo(() => `${Math.round(scale * 100)}%`, [scale]);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const matchingIds = useMemo(() => {
+    if (!normalizedQuery) return new Set<string>();
+    return new Set(
+      nodes
+        .filter((node) => node.type !== "placeholder" && node.title.toLowerCase().includes(normalizedQuery))
+        .map((node) => node.id)
+    );
+  }, [nodes, normalizedQuery]);
+
+  const matchedEngramIds = useMemo(() => {
+    if (!normalizedQuery) return new Set<string>();
+    return new Set(
+      nodes
+        .filter(
+          (node) =>
+            node.type === "engram" && node.title.toLowerCase().includes(normalizedQuery)
+        )
+        .map((node) => node.id)
+    );
+  }, [nodes, normalizedQuery]);
+
+  const tooltipPosition = useMemo(() => {
+    if (!hoveredNode || !containerRef.current) return null;
+    const x = translate.x + (hoveredNode.x + hoveredNode.width / 2) * scale;
+    const y = translate.y + hoveredNode.y * scale;
+    return { x, y };
+  }, [hoveredNode, translate, scale]);
+
+  const handleNodeClick = (node: PositionedNode) => {
+    if (!node.url) return;
+    window.open(node.url, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div className="bg-white border border-[#B1C3BD]/30 rounded-2xl p-4 shadow-sm">
@@ -188,6 +226,20 @@ export function EngramMapClient({ nodes, lines, width, height }: EngramMapClient
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2 text-xs text-[#231F20]/60">
+          <span className="font-medium text-[#231F20]/70">Search</span>
+          <span>Highlights matching nodes.</span>
+        </div>
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search nodes..."
+          className="w-full max-w-xs rounded-lg border border-[#B1C3BD]/40 bg-white px-3 py-2 text-sm text-[#231F20] placeholder:text-[#231F20]/40 focus:border-[#7AEFB1] focus:outline-none"
+        />
+      </div>
+
       <div
         ref={containerRef}
         className={`relative overflow-hidden rounded-2xl border border-[#E6ECE8] bg-[#FBFBF6] h-[560px] ${
@@ -199,29 +251,78 @@ export function EngramMapClient({ nodes, lines, width, height }: EngramMapClient
         onMouseUp={stopPanning}
         onMouseLeave={stopPanning}
       >
+        {hoveredNode && tooltipPosition && (
+          <div
+            className="absolute z-10 pointer-events-none rounded-lg border border-[#B1C3BD]/40 bg-white px-3 py-2 text-xs text-[#231F20] shadow-lg"
+            style={{
+              left: tooltipPosition.x,
+              top: tooltipPosition.y - 12,
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <p className="font-semibold text-[#231F20]">{hoveredNode.title}</p>
+            <p className="text-[#231F20]/60 capitalize">{hoveredNode.type}</p>
+            {hoveredNode.type === "engram" && hoveredNode.counts && (
+              <p className="text-[#231F20]/60 mt-1">
+                {hoveredNode.counts.concepts} concepts · {hoveredNode.counts.lessons} lessons
+              </p>
+            )}
+          </div>
+        )}
         <svg
           width="100%"
           height="100%"
           viewBox={`0 0 ${containerSize.width || width} ${containerSize.height || height}`}
           preserveAspectRatio="xMidYMid meet"
         >
+          <defs>
+            <pattern id="map-grid" width="28" height="28" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="1" fill="#E6ECE8" />
+            </pattern>
+          </defs>
           <rect width="100%" height="100%" fill="#FBFBF6" />
+          <rect width="100%" height="100%" fill="url(#map-grid)" opacity="0.7" />
           <g transform={`translate(${translate.x} ${translate.y}) scale(${scale})`}>
-            {lines.map((line, index) => (
-              <line
-                key={`line-${index}`}
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
-                stroke="#CBD5E1"
-                strokeWidth="1.5"
-              />
-            ))}
+            {lines.map((line, index) => {
+              const isHighlighted =
+                !normalizedQuery ||
+                matchingIds.has(line.fromId) ||
+                matchingIds.has(line.toId) ||
+                matchedEngramIds.has(line.fromId) ||
+                matchedEngramIds.has(line.toId);
+              return (
+                <line
+                  key={`line-${index}`}
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke="#CBD5E1"
+                  strokeWidth="1.5"
+                  opacity={normalizedQuery && !isHighlighted ? 0.15 : 1}
+                />
+              );
+            })}
             {nodes.map((node) => {
               const styles = getNodeStyles(node.type);
+              const isMatch = normalizedQuery
+                ? node.type !== "placeholder" && node.title.toLowerCase().includes(normalizedQuery)
+                : false;
+              const isRelated = normalizedQuery
+                ? !isMatch && !!node.parentId && matchedEngramIds.has(node.parentId)
+                : false;
+              const dimOpacity = normalizedQuery && !isMatch && !isRelated ? 0.25 : 1;
+              const isInteractive = !!node.url && node.type !== "placeholder";
               return (
-                <g key={`${node.type}-${node.id}`}>
+                <g
+                  key={`${node.type}-${node.id}`}
+                  data-node="true"
+                  onMouseEnter={() => setHoveredNode(node)}
+                  onMouseLeave={() => setHoveredNode(null)}
+                  onClick={() => handleNodeClick(node)}
+                  style={{ cursor: isInteractive ? "pointer" : "default" }}
+                  opacity={dimOpacity}
+                >
                   <rect
                     x={node.x}
                     y={node.y}
@@ -230,7 +331,7 @@ export function EngramMapClient({ nodes, lines, width, height }: EngramMapClient
                     rx={12}
                     fill={styles.fill}
                     stroke={styles.stroke}
-                    strokeWidth={1.5}
+                    strokeWidth={isMatch ? 2.5 : 1.5}
                   />
                   <title>{node.title}</title>
                   <text

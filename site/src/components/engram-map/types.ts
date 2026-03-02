@@ -2,6 +2,12 @@ export type MapNode = {
   id: string;
   title: string;
   type: "engram" | "concept" | "lesson" | "placeholder";
+  url?: string;
+  parentId?: string;
+  counts?: {
+    concepts: number;
+    lessons: number;
+  };
 };
 
 export type EngramMap = {
@@ -24,4 +30,6 @@ export type Line = {
   y1: number;
   x2: number;
   y2: number;
+  fromId: string;
+  toId: string;
 };

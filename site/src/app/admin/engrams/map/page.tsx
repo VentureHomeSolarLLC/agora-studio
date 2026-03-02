@@ -8,6 +8,8 @@ import { EngramMapClient } from "@/components/engram-map/EngramMapClient";
 import type { EngramMap, Line, MapNode, PositionedNode } from "@/components/engram-map/types";
 
 const ENGRAMS_V2_DIR = path.join(process.cwd(), "..", "engrams-v2");
+const REPO_TREE_BASE = "https://github.com/VentureHomeSolarLLC/agora-studio/tree/main";
+const REPO_BLOB_BASE = "https://github.com/VentureHomeSolarLLC/agora-studio/blob/main";
 
 function getEngramMapData(): EngramMap[] {
   if (!fs.existsSync(ENGRAMS_V2_DIR)) return [];
@@ -28,8 +30,8 @@ function getEngramMapData(): EngramMap[] {
     const conceptsDir = path.join(engramDir, "concepts");
     const lessonsDir = path.join(engramDir, "lessons");
 
-    const concepts = loadChildNodes(conceptsDir, "concept");
-    const lessons = loadChildNodes(lessonsDir, "lesson");
+    const concepts = loadChildNodes(conceptsDir, "concept", entry.name);
+    const lessons = loadChildNodes(lessonsDir, "lesson", entry.name);
 
     engrams.push({
       id: entry.name,
@@ -43,13 +45,14 @@ function getEngramMapData(): EngramMap[] {
   return engrams.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-function loadChildNodes(dirPath: string, type: "concept" | "lesson"): MapNode[] {
+function loadChildNodes(dirPath: string, type: "concept" | "lesson", parentId: string): MapNode[] {
   if (!fs.existsSync(dirPath)) {
     return [
       {
-        id: `${type}-none`,
+        id: `${parentId}-${type}-none`,
         title: type === "concept" ? "No concepts yet" : "No lessons yet",
         type: "placeholder",
+        parentId,
       },
     ];
   }
@@ -58,9 +61,10 @@ function loadChildNodes(dirPath: string, type: "concept" | "lesson"): MapNode[] 
   if (files.length === 0) {
     return [
       {
-        id: `${type}-none`,
+        id: `${parentId}-${type}-none`,
         title: type === "concept" ? "No concepts yet" : "No lessons yet",
         type: "placeholder",
+        parentId,
       },
     ];
   }
@@ -70,10 +74,14 @@ function loadChildNodes(dirPath: string, type: "concept" | "lesson"): MapNode[] 
       const filePath = path.join(dirPath, file);
       const { data } = matter(fs.readFileSync(filePath, "utf-8"));
       const title = data.title || file.replace(/\.md$/, "");
+      const folder = type === "concept" ? "concepts" : "lessons";
+      const relativePath = `engrams-v2/${parentId}/${folder}/${file}`;
       return {
         id: file.replace(/\.md$/, ""),
         title,
         type,
+        parentId,
+        url: `${REPO_BLOB_BASE}/${relativePath}`,
       } as MapNode;
     })
     .sort((a, b) => a.title.localeCompare(b.title));
@@ -100,10 +108,17 @@ function buildLayout(engrams: EngramMap[]) {
     const rowTop = currentY;
 
     const engramY = rowTop + (rowHeight - nodeHeight) / 2;
+    const conceptCount = engram.concepts.filter((c) => c.type !== "placeholder").length;
+    const lessonCount = engram.lessons.filter((l) => l.type !== "placeholder").length;
     const engramNode: PositionedNode = {
       id: engram.id,
       title: engram.title,
       type: "engram",
+      url: `${REPO_TREE_BASE}/engrams-v2/${engram.id}`,
+      counts: {
+        concepts: conceptCount,
+        lessons: lessonCount,
+      },
       x: engramX,
       y: engramY,
       width: nodeWidth,
@@ -126,6 +141,8 @@ function buildLayout(engrams: EngramMap[]) {
         y1: engramY + nodeHeight / 2,
         x2: conceptX,
         y2: y + nodeHeight / 2,
+        fromId: engram.id,
+        toId: concept.id,
       });
     });
 
@@ -144,6 +161,8 @@ function buildLayout(engrams: EngramMap[]) {
         y1: engramY + nodeHeight / 2,
         x2: lessonX,
         y2: y + nodeHeight / 2,
+        fromId: engram.id,
+        toId: lesson.id,
       });
     });
 
