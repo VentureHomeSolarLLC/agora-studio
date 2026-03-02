@@ -44,7 +44,7 @@ jobs:
             NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
             ALLOWED_DOMAIN=${{ secrets.ALLOWED_DOMAIN }}
-            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_API_KEY=${{ secrets.OPEN_API_KEY }}
             EOF
             
             echo "🔨 Building..."
