@@ -11,6 +11,86 @@ import { MetadataForm } from '@/components/engram-builder/MetadataForm';
 import { ReviewAndPublish } from '@/components/engram-builder/ReviewAndPublish';
 
 const STEPS = ['Type', 'Info', 'Content', 'AI Analysis', 'Metadata', 'Publish'];
+const KNOWLEDGE_HUB_KEYWORDS = ['platform', 'system', 'product', 'overview', 'hub', 'foundation', 'core', 'general'];
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .substring(0, 50);
+
+function collapseKnowledgeModes(
+  suggestedModes: any[],
+  fallbackId: string,
+  fallbackLabel: string
+): {
+  agentEngramModesArray: AgentEngramModeSuggestion[];
+  remapEngram: (forEngram?: string) => string | undefined;
+} {
+  if (!Array.isArray(suggestedModes) || suggestedModes.length === 0) {
+    return {
+      agentEngramModesArray: [],
+      remapEngram: (forEngram?: string) => forEngram,
+    };
+  }
+
+  const deduped = Array.from(
+    suggestedModes.reduce((map: Map<string, AgentEngramModeSuggestion>, mode: any) => {
+      const engramId = slugify(mode.forEngram || fallbackLabel || fallbackId);
+      const existing = map.get(engramId);
+      if (existing) {
+        if (mode.rationale && !existing.rationale?.includes(mode.rationale)) {
+          existing.rationale = existing.rationale ? `${existing.rationale} ${mode.rationale}` : mode.rationale;
+        }
+        return map;
+      }
+      map.set(engramId, {
+        engramId,
+        label: mode.forEngram || fallbackLabel || fallbackId,
+        mode: mode.mode === 'procedure' ? 'procedure' : 'knowledge',
+        rationale: mode.rationale,
+        include: true,
+      });
+      return map;
+    }, new Map<string, AgentEngramModeSuggestion>())
+  );
+
+  const knowledgeModes = deduped.filter((mode) => mode.mode === 'knowledge');
+  const procedureModes = deduped.filter((mode) => mode.mode === 'procedure');
+
+  if (knowledgeModes.length <= 1) {
+    return {
+      agentEngramModesArray: [...knowledgeModes, ...procedureModes],
+      remapEngram: (forEngram?: string) => forEngram,
+    };
+  }
+
+  const hub =
+    knowledgeModes.find((mode) =>
+      KNOWLEDGE_HUB_KEYWORDS.some((keyword) =>
+        (mode.engramId || '').includes(keyword) || (mode.label || '').toLowerCase().includes(keyword)
+      )
+    ) || knowledgeModes[0];
+
+  const collapsedIds = new Set(
+    knowledgeModes.filter((mode) => mode.engramId !== hub.engramId).map((mode) => mode.engramId)
+  );
+
+  const remapEngram = (forEngram?: string) => {
+    if (!forEngram) return forEngram;
+    const slug = slugify(forEngram);
+    if (collapsedIds.has(slug)) {
+      return hub.label || hub.engramId;
+    }
+    return forEngram;
+  };
+
+  return {
+    agentEngramModesArray: [hub, ...procedureModes],
+    remapEngram,
+  };
+}
 
 export default function NewEngramPage() {
   const [step, setStep] = useState(1);
@@ -58,13 +138,6 @@ export default function NewEngramPage() {
     duplicateResolutionConfirmed: false,
     duplicateCheck: null,
   });
-
-  const slugify = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .substring(0, 50);
 
   const updateFormData = (updates: Partial<EngramFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -179,35 +252,18 @@ export default function NewEngramPage() {
         const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
         const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
         const fallbackId = slugify(formData.title || 'engram');
-        const agentEngramModesArray = Array.from(
-          suggestedModes.reduce((map: Map<string, any>, mode: any) => {
-            const engramId = slugify(mode.forEngram || formData.title || fallbackId);
-            const existing = map.get(engramId);
-            if (existing) {
-              if (mode.rationale && !existing.rationale?.includes(mode.rationale)) {
-                existing.rationale = existing.rationale
-                  ? `${existing.rationale} ${mode.rationale}`
-                  : mode.rationale;
-              }
-              return map;
-            }
-            map.set(engramId, {
-              engramId,
-              label: mode.forEngram || formData.title || fallbackId,
-              mode: mode.mode === 'procedure' ? 'procedure' : 'knowledge',
-              rationale: mode.rationale,
-              include: true,
-            });
-            return map;
-          }, new Map<string, any>())
-        .values()) as AgentEngramModeSuggestion[];
+        const { agentEngramModesArray, remapEngram } = collapseKnowledgeModes(
+          suggestedModes,
+          fallbackId,
+          formData.title || fallbackId
+        );
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: {
             concepts: suggestedConcepts.map((concept: any) => ({
               title: concept.title,
               content: concept.content,
-              forEngram: concept.forEngram,
+              forEngram: remapEngram(concept.forEngram),
               confidence: concept.confidence,
               riskLevel: concept.riskLevel,
               include: shouldAutoInclude(concept),
@@ -221,7 +277,7 @@ export default function NewEngramPage() {
               title: lesson.title,
               scenario: lesson.scenario,
               solution: lesson.solution,
-              forEngram: lesson.forEngram,
+              forEngram: remapEngram(lesson.forEngram),
               confidence: lesson.confidence,
               riskLevel: lesson.riskLevel,
               include: shouldAutoInclude(lesson),
@@ -243,35 +299,18 @@ export default function NewEngramPage() {
         const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
         const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
         const fallbackId = slugify(formData.title || 'engram');
-        const agentEngramModesArray = Array.from(
-          suggestedModes.reduce((map: Map<string, any>, mode: any) => {
-            const engramId = slugify(mode.forEngram || formData.title || fallbackId);
-            const existing = map.get(engramId);
-            if (existing) {
-              if (mode.rationale && !existing.rationale?.includes(mode.rationale)) {
-                existing.rationale = existing.rationale
-                  ? `${existing.rationale} ${mode.rationale}`
-                  : mode.rationale;
-              }
-              return map;
-            }
-            map.set(engramId, {
-              engramId,
-              label: mode.forEngram || formData.title || fallbackId,
-              mode: mode.mode === 'procedure' ? 'procedure' : 'knowledge',
-              rationale: mode.rationale,
-              include: true,
-            });
-            return map;
-          }, new Map<string, any>())
-        .values()) as AgentEngramModeSuggestion[];
+        const { agentEngramModesArray, remapEngram } = collapseKnowledgeModes(
+          suggestedModes,
+          fallbackId,
+          formData.title || fallbackId
+        );
         updateFormData({
           aiAnalysis: analysis,
           agentExtraction: {
             concepts: suggestedConcepts.map((concept: any) => ({
               title: concept.title,
               content: concept.content,
-              forEngram: concept.forEngram,
+              forEngram: remapEngram(concept.forEngram),
               confidence: concept.confidence,
               riskLevel: concept.riskLevel,
               include: shouldAutoInclude(concept),
@@ -285,7 +324,7 @@ export default function NewEngramPage() {
               title: lesson.title,
               scenario: lesson.scenario,
               solution: lesson.solution,
-              forEngram: lesson.forEngram,
+              forEngram: remapEngram(lesson.forEngram),
               confidence: lesson.confidence,
               riskLevel: lesson.riskLevel,
               include: shouldAutoInclude(lesson),
