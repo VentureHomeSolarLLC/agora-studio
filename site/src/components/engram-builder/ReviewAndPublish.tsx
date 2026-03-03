@@ -103,14 +103,14 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
       mergeFiles.push(
         `${verb} concept in ${concept.mergeTargetPath} (${concept.mergeTargetTitle || 'existing concept'})`
       );
-      if (concept.mergeStrategy === 'replace') {
+      if (concept.mergeStrategy === 'replace' && concept.mergeTargetPath) {
         addTreePath(concept.mergeTargetPath);
       }
     });
     mergeLessons.forEach((lesson) => {
       const verb = lesson.mergeStrategy === 'replace' ? 'Replace' : 'Append';
       mergeFiles.push(`${verb} lesson in ${lesson.mergeTargetPath} (${lesson.mergeTargetTitle || 'existing lesson'})`);
-      if (lesson.mergeStrategy === 'replace') {
+      if (lesson.mergeStrategy === 'replace' && lesson.mergeTargetPath) {
         addTreePath(lesson.mergeTargetPath);
       }
     });
