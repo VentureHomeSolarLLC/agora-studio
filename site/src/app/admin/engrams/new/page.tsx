@@ -9,8 +9,9 @@ import { ContentInputForm } from '@/components/engram-builder/ContentInputForm';
 import { AIAnalysisReview } from '@/components/engram-builder/AIAnalysisReview';
 import { MetadataForm } from '@/components/engram-builder/MetadataForm';
 import { ReviewAndPublish } from '@/components/engram-builder/ReviewAndPublish';
+import { EngramTestPanel } from '@/components/engram-builder/EngramTestPanel';
 
-const STEPS = ['Type', 'Info', 'Content', 'AI Analysis', 'Metadata', 'Publish'];
+const STEPS = ['Type', 'Info', 'Content', 'AI Analysis', 'Metadata', 'Test', 'Publish'];
 const KNOWLEDGE_HUB_KEYWORDS = ['platform', 'system', 'product', 'overview', 'hub', 'foundation', 'core', 'general'];
 const DEFAULT_AGENT_PROFILE = {
   skillMode: 'procedure' as const,
@@ -540,7 +541,8 @@ export default function NewEngramPage() {
           />
         )}
         {step === 5 && <MetadataForm data={formData} onChange={updateFormData} />}
-        {step === 6 && (
+        {step === 6 && <EngramTestPanel data={formData} />}
+        {step === 7 && (
           <ReviewAndPublish
             data={formData}
             onChange={updateFormData}
@@ -562,7 +564,11 @@ export default function NewEngramPage() {
             {isAnalyzing ? 'Analyzing...' : 'Analyze'}
           </button>
         )}
-        {step !== 3 && step !== 4 && step !== 6 && <button onClick={() => setStep(step + 1)} className="bg-gray-900 text-white px-6 py-3 rounded-lg">Next</button>}
+        {step !== 3 && step !== 4 && step !== 7 && (
+          <button onClick={() => setStep(step + 1)} className="bg-gray-900 text-white px-6 py-3 rounded-lg">
+            Next
+          </button>
+        )}
       </div>
     </div>
   );
