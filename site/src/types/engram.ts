@@ -116,6 +116,7 @@ export interface EngramFormData {
   rawContent?: string;
   aiAnalysis?: any;
   agentProfile?: AgentProfile;
+  agentImportMode?: 'notes' | 'monolith';
   agentEngramModes?: AgentEngramModeSuggestion[];
   agentExtraction?: {
     concepts: AgentExtractionConcept[];

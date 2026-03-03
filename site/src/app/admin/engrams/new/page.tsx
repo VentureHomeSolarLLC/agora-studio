@@ -133,6 +133,7 @@ export default function NewEngramPage() {
       subdomains: [],
       triggerQuestions: [],
     },
+    agentImportMode: 'notes',
     agentEngramModes: [],
     agentExtraction: null,
     duplicateResolutionConfirmed: false,
@@ -173,6 +174,7 @@ export default function NewEngramPage() {
         subdomains: [],
         triggerQuestions: [],
       } : undefined,
+      agentImportMode: type === 'agent' ? 'notes' : undefined,
       agentEngramModes: [],
       agentExtraction: null,
       duplicateResolutionConfirmed: false,
@@ -193,6 +195,7 @@ export default function NewEngramPage() {
           contentType: formData.contentType,
           title: formData.title,
           agentMode: formData.agentProfile?.skillMode,
+          importMode: formData.agentImportMode,
         }),
       });
 
@@ -211,7 +214,55 @@ export default function NewEngramPage() {
       const currentTags = formData.tags || [];
       const newTags = analysis.suggestedTags?.filter((tag: string) => !currentTags.includes(tag)) || [];
       
-      if (formData.contentType === 'agent') {
+      if (formData.contentType === 'agent' && formData.agentImportMode === 'monolith') {
+        const suggestedConcepts = analysis?.agentTrainingPotential?.suggestedConcepts || [];
+        const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
+        const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
+        const fallbackId = slugify(formData.title || 'engram');
+        const { agentEngramModesArray, remapEngram } = collapseKnowledgeModes(
+          suggestedModes,
+          fallbackId,
+          formData.title || fallbackId
+        );
+        updateFormData({
+          aiAnalysis: analysis,
+          agentExtraction: {
+            concepts: suggestedConcepts.map((concept: any) => ({
+              title: concept.title,
+              content: concept.content,
+              forEngram: remapEngram(concept.forEngram),
+              confidence: concept.confidence,
+              riskLevel: concept.riskLevel,
+              include: shouldAutoInclude(concept),
+              previewMarkdown: concept.previewMarkdown,
+              mergeTargetPath: undefined,
+              mergeTargetTitle: undefined,
+              mergeTargetType: undefined,
+              duplicate: concept.duplicate,
+            })),
+            lessons: suggestedLessons.map((lesson: any) => ({
+              title: lesson.title,
+              scenario: lesson.scenario,
+              solution: lesson.solution,
+              forEngram: remapEngram(lesson.forEngram),
+              confidence: lesson.confidence,
+              riskLevel: lesson.riskLevel,
+              include: shouldAutoInclude(lesson),
+              previewMarkdown: lesson.previewMarkdown,
+              mergeTargetPath: undefined,
+              mergeTargetTitle: undefined,
+              mergeTargetType: undefined,
+              duplicate: lesson.duplicate,
+            })),
+          },
+          agentEngramModes: agentEngramModesArray,
+          duplicateResolutionConfirmed: false,
+          duplicateCheck: data.duplicateCheck || null,
+          tags: [...currentTags, ...newTags],
+          concepts: [],
+          lessons: [],
+        });
+      } else if (formData.contentType === 'agent') {
         const skill = analysis.skill || {};
         const isKnowledgeMode = formData.agentProfile?.skillMode === 'knowledge';
         const nextProfile = {

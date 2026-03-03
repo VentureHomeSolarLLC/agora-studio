@@ -12,7 +12,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { content, contentType, title, agentMode } = await request.json();
+    const { content, contentType, title, agentMode, importMode } = await request.json();
 
     if (!content || !contentType) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -34,7 +34,13 @@ export async function POST(request: NextRequest) {
         analysis = attachExtractionPreviews(analysis, 'internal', title, content);
         break;
       case 'agent':
-        analysis = await analyzeAgentInstructions(content, title, agentMode);
+        if (importMode === 'monolith') {
+          analysis = await analyzeAgentImport(content, title);
+          analysis = enrichAgentTrainingPotential(analysis);
+          analysis = attachExtractionPreviews(analysis, 'agent', title, content);
+        } else {
+          analysis = await analyzeAgentInstructions(content, title, agentMode);
+        }
         break;
       default:
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
@@ -84,11 +90,11 @@ function enrichAgentTrainingPotential(analysis: any) {
   return analysis;
 }
 
-type SourceInfo = { id: string; type: 'customer' | 'internal'; hash: string };
+type SourceInfo = { id: string; type: 'customer' | 'internal' | 'agent'; hash: string };
 
 function attachExtractionPreviews(
   analysis: any,
-  contentType: 'customer' | 'internal',
+  contentType: 'customer' | 'internal' | 'agent',
   title: string,
   content: string
 ) {
@@ -190,7 +196,15 @@ function buildAutoConceptPreview(
   const sourceField =
     sourceInfo.type === 'internal'
       ? { source_internal_doc: sourceInfo.id }
+      : sourceInfo.type === 'agent'
+      ? { source_agent_skill: sourceInfo.id }
       : { source_customer_page: sourceInfo.id };
+  const sourceTag =
+    sourceInfo.type === 'internal'
+      ? 'internal-content-derived'
+      : sourceInfo.type === 'agent'
+      ? 'agent-skill-derived'
+      : 'customer-content-derived';
   const frontmatter = {
     engram_id: parentId,
     concept_id: conceptId,
@@ -200,11 +214,15 @@ function buildAutoConceptPreview(
     for_engram: concept.forEngram || 'general',
     ...sourceField,
     source_hash: sourceInfo.hash,
-    tags: [
-      'auto-extracted',
-      sourceInfo.type === 'internal' ? 'internal-content-derived' : 'customer-content-derived',
-    ],
+    tags: ['auto-extracted', sourceTag],
   };
+
+  const sourceNote =
+    sourceInfo.type === 'internal'
+      ? 'Auto-extracted from internal reference content.'
+      : sourceInfo.type === 'agent'
+      ? 'Auto-extracted from an imported skill file.'
+      : 'Auto-extracted from customer-facing content.';
 
   return (
     '---\n' +
@@ -213,7 +231,7 @@ function buildAutoConceptPreview(
     concept.title +
     '\n\n' +
     concept.content +
-    '\n\n---\n*Auto-extracted from customer-facing content. Review for accuracy before using in agent training.*'
+    `\n\n---\n*${sourceNote} Review for accuracy before using in agent training.*`
   );
 }
 
@@ -226,6 +244,8 @@ function buildAutoLessonPreview(
   const sourceField =
     sourceInfo.type === 'internal'
       ? { source_internal_doc: sourceInfo.id }
+      : sourceInfo.type === 'agent'
+      ? { source_agent_skill: sourceInfo.id }
       : { source_customer_page: sourceInfo.id };
   const frontmatter = {
     engram_id: parentId,
@@ -241,6 +261,13 @@ function buildAutoLessonPreview(
     source_hash: sourceInfo.hash,
   };
 
+  const sourceNote =
+    sourceInfo.type === 'internal'
+      ? 'Auto-extracted from internal reference content.'
+      : sourceInfo.type === 'agent'
+      ? 'Auto-extracted from an imported skill file.'
+      : 'Auto-extracted from customer-facing content.';
+
   return (
     '---\n' +
     yaml.dump(frontmatter) +
@@ -250,7 +277,7 @@ function buildAutoLessonPreview(
     lesson.scenario +
     '\n\n## Solution\n' +
     lesson.solution +
-    '\n\n---\n*Auto-extracted from customer-facing content. Review before using in agent training.*'
+    `\n\n---\n*${sourceNote} Review before using in agent training.*`
   );
 }
 
@@ -736,6 +763,52 @@ Guidelines:
     },
     concepts: [],
     lessons: [],
+    suggestedTags: [],
+    warnings: ['AI response parsing failed.'],
+  });
+}
+
+async function analyzeAgentImport(content: string, title: string) {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4-turbo-preview',
+    messages: [
+      {
+        role: 'system',
+        content: `You are converting an existing monolithic SKILL.md into Engram v2 files. Extract the reusable knowledge so it can be routed into the correct Engram folders.
+
+Return JSON with:
+- agentTrainingPotential: {
+    suggestedConcepts: [{ title, content, forEngram, confidence, riskLevel }],
+    suggestedLessons: [{ title, scenario, solution, forEngram, confidence, riskLevel }],
+    engramModes: [{ forEngram, mode: knowledge | procedure, rationale }]
+  }
+- suggestedTags: string[]
+- warnings: string[]
+
+Guidelines:
+- Use "forEngram" to point to existing or newly proposed Engram names.
+- Concepts = reusable conditions, definitions, constraints, or requirements.
+- Lessons = edge cases or unexpected outcomes with a clear scenario + solution.
+- Confidence is 0-1. Set riskLevel to low/medium/high based on potential harm.
+- If information is purely reference knowledge, mark the Engram mode as knowledge.`
+      },
+      {
+        role: 'user',
+        content: `Title: ${title}\n\nSKILL.md content:\n${content}`
+      }
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.2,
+    max_tokens: 4000,
+  });
+
+  const raw = response.choices[0].message.content;
+  return safeParseJson(raw, {
+    agentTrainingPotential: {
+      suggestedConcepts: [],
+      suggestedLessons: [],
+      engramModes: [],
+    },
     suggestedTags: [],
     warnings: ['AI response parsing failed.'],
   });

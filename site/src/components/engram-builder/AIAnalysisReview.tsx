@@ -42,6 +42,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const [lessonYamlPreview, setLessonYamlPreview] = useState<Record<number, boolean>>({});
   const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const isKnowledgeOnly = data.agentProfile?.skillMode === 'knowledge';
+  const isAgentImport = data.contentType === 'agent' && data.agentImportMode === 'monolith';
   const AUTO_INCLUDE_CONFIDENCE = 0.7;
 
   useEffect(() => {
@@ -357,7 +358,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     );
   };
 
-  if (data.contentType === 'agent') {
+  if (data.contentType === 'agent' && !isAgentImport) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -488,7 +489,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </button>
       </div>
 
-      {analysis.readability && (
+      {analysis.readability && !isAgentImport && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
           <h3 className="font-medium text-purple-900">Readability: {analysis.readability?.gradeLevel || 'high school'} level</h3>
           <div className="flex items-center gap-3 my-2 max-w-md">
@@ -822,7 +823,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {analysis.beforeAfter && (
+      {analysis.beforeAfter && !isAgentImport && (
         <div className="space-y-4">
           <h3 className="font-medium text-gray-700">Before & After Comparison</h3>
           <div className="grid grid-cols-2 gap-4">
@@ -859,7 +860,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {analysis.missingContentSections?.length > 0 && !versionLocked && (
+      {analysis.missingContentSections?.length > 0 && !versionLocked && !isAgentImport && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <h3 className="font-medium text-orange-900 mb-3">💡 Suggested Sections to Add</h3>
           <div className="space-y-3">
@@ -910,7 +911,9 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
-      {!versionLocked && (!analysis.missingContentSections || analysis.missingContentSections.length === 0) && (
+      {!versionLocked &&
+        (!analysis.missingContentSections || analysis.missingContentSections.length === 0) &&
+        !isAgentImport && (
         <button onClick={applyVersion} className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2">
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

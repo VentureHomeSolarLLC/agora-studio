@@ -8,7 +8,7 @@ type ExtractionConcept = { title: string; content: string; forEngram?: string };
 type ExtractionLesson = { title: string; scenario: string; solution: string; forEngram?: string };
 type EngramGroup = { engramTitle: string; concepts: ExtractionConcept[]; lessons: ExtractionLesson[] };
 type IndexEntry = { title: string; fileName: string };
-type SourceInfo = { id: string; type: 'customer' | 'internal'; hash: string };
+type SourceInfo = { id: string; type: 'customer' | 'internal' | 'agent'; hash: string };
 
 export function transformToEngram(formData: EngramFormData) {
   const engramId = slugify(formData.title);
@@ -16,7 +16,115 @@ export function transformToEngram(formData: EngramFormData) {
   
   const files: Record<string, string> = {};
 
-  if (formData.contentType === 'customer' || formData.contentType === 'internal') {
+  if (formData.contentType === 'agent' && formData.agentImportMode === 'monolith') {
+    const extractedConcepts = formData.agentExtraction?.concepts?.filter((c) => c.include) || [];
+    const extractedLessons = formData.agentExtraction?.lessons?.filter((l) => l.include) || [];
+    const mergeConcepts = formData.agentExtraction?.concepts?.filter((c) => c.mergeTargetPath) || [];
+    const mergeLessons = formData.agentExtraction?.lessons?.filter((l) => l.mergeTargetPath) || [];
+
+    const grouped = groupAgentExtracts(extractedConcepts, extractedLessons, engramId);
+    const repoRoot = getRepoRoot();
+    const sourceInfo: SourceInfo = {
+      id: engramId,
+      type: 'agent',
+      hash: computeSourceHash(formData.title || engramId, formData.rawContent || ''),
+    };
+    const modeLookup = new Map(
+      (formData.agentEngramModes || [])
+        .filter((entry) => entry.include !== false)
+        .map((entry) => [entry.engramId, entry.mode])
+    );
+
+    for (const [targetEngramId, group] of grouped.entries()) {
+      const engramDir = path.join(repoRoot, 'engrams-v2', targetEngramId);
+      const indexPath = path.join(engramDir, '_index.md');
+      const skillPath = path.join(engramDir, 'SKILL.md');
+
+      const createdIndex = !fs.existsSync(indexPath);
+      const createdSkill = !fs.existsSync(skillPath);
+
+      if (createdSkill) {
+        files[`engrams-v2/${targetEngramId}/SKILL.md`] = generateAutoSkillMd({
+          engramId: targetEngramId,
+          title: group.engramTitle,
+          sourceInfo,
+          mode: modeLookup.get(targetEngramId) || 'knowledge',
+        });
+      }
+
+      const conceptEntries: IndexEntry[] = [];
+      const lessonEntries: IndexEntry[] = [];
+
+      group.concepts.forEach((concept, i) => {
+        const baseSlug = slugify(concept.title || `auto-concept-${i + 1}`);
+        const fileName = getUniqueFileName(
+          path.join(engramDir, 'concepts'),
+          baseSlug,
+          '.md',
+          files,
+          `engrams-v2/${targetEngramId}/concepts/`
+        );
+        const conceptId = fileName.replace(/\.md$/, '');
+        files[`engrams-v2/${targetEngramId}/concepts/${fileName}`] = generateAutoConceptMd(
+          concept,
+          targetEngramId,
+          sourceInfo,
+          conceptId
+        );
+        conceptEntries.push({ title: concept.title, fileName });
+      });
+
+      group.lessons.forEach((lesson, i) => {
+        const datePrefix = new Date().toISOString().split('T')[0];
+        const baseSlug = `${datePrefix}-${slugify(lesson.title || `auto-lesson-${i + 1}`)}`;
+        const fileName = getUniqueFileName(
+          path.join(engramDir, 'lessons'),
+          baseSlug,
+          '.md',
+          files,
+          `engrams-v2/${targetEngramId}/lessons/`
+        );
+        const lessonId = fileName.replace(/\.md$/, '');
+        files[`engrams-v2/${targetEngramId}/lessons/${fileName}`] = generateAutoLessonMd(
+          lesson,
+          targetEngramId,
+          sourceInfo,
+          lessonId
+        );
+        lessonEntries.push({ title: lesson.title, fileName });
+      });
+
+      if (!createdIndex && (conceptEntries.length > 0 || lessonEntries.length > 0)) {
+        const existingContent = fs.readFileSync(indexPath, 'utf-8');
+        const updatedContent = updateIndexWithEntries(existingContent, conceptEntries, lessonEntries);
+        files[`engrams-v2/${targetEngramId}/_index.md`] = updatedContent;
+      }
+
+      if (createdIndex && (conceptEntries.length > 0 || lessonEntries.length > 0)) {
+        const indexContent = generateAutoEngramIndexMd({
+          engramId: targetEngramId,
+          title: group.engramTitle,
+          description: `Auto-extracted agent materials from imported skill: ${formData.title}.`,
+          category: formData.category,
+          tags: formData.tags || [],
+          sourceInfo,
+          conceptEntries,
+          lessonEntries,
+        });
+        files[`engrams-v2/${targetEngramId}/_index.md`] = indexContent;
+      }
+    }
+
+    if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
+      const mergeUpdates = buildMergeUpdates(mergeConcepts, mergeLessons, sourceInfo);
+      mergeUpdates.forEach((blocks, targetPath) => {
+        const fullPath = path.join(repoRoot, targetPath);
+        const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
+        const updated = appendMergeBlocks(existing, blocks);
+        files[targetPath] = updated;
+      });
+    }
+  } else if (formData.contentType === 'customer' || formData.contentType === 'internal') {
     if (formData.contentType === 'customer') {
       files[`customer-pages/${engramId}/_index.md`] = generateCustomerPageMd(formData, engramId);
     } else {
@@ -169,7 +277,15 @@ function generateAutoConceptMd(
   const sourceField =
     sourceInfo.type === 'internal'
       ? { source_internal_doc: sourceInfo.id }
+      : sourceInfo.type === 'agent'
+      ? { source_agent_skill: sourceInfo.id }
       : { source_customer_page: sourceInfo.id };
+  const sourceTag =
+    sourceInfo.type === 'internal'
+      ? 'internal-content-derived'
+      : sourceInfo.type === 'agent'
+      ? 'agent-skill-derived'
+      : 'customer-content-derived';
   const frontmatter = {
     engram_id: parentId,
     concept_id: conceptId,
@@ -179,13 +295,25 @@ function generateAutoConceptMd(
     for_engram: concept.forEngram || 'general',
     ...sourceField,
     source_hash: sourceInfo.hash,
-    tags: [
-      'auto-extracted',
-      sourceInfo.type === 'internal' ? 'internal-content-derived' : 'customer-content-derived',
-    ],
+    tags: ['auto-extracted', sourceTag],
   };
 
-  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + concept.title + '\n\n' + concept.content + '\n\n---\n*Auto-extracted from customer-facing content. Review for accuracy before using in agent training.*';
+  const sourceNote =
+    sourceInfo.type === 'internal'
+      ? 'Auto-extracted from internal reference content.'
+      : sourceInfo.type === 'agent'
+      ? 'Auto-extracted from an imported skill file.'
+      : 'Auto-extracted from customer-facing content.';
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    concept.title +
+    '\n\n' +
+    concept.content +
+    `\n\n---\n*${sourceNote} Review for accuracy before using in agent training.*`
+  );
 }
 
 function generateAutoLessonMd(
@@ -197,6 +325,8 @@ function generateAutoLessonMd(
   const sourceField =
     sourceInfo.type === 'internal'
       ? { source_internal_doc: sourceInfo.id }
+      : sourceInfo.type === 'agent'
+      ? { source_agent_skill: sourceInfo.id }
       : { source_customer_page: sourceInfo.id };
   const frontmatter = {
     engram_id: parentId,
@@ -212,7 +342,24 @@ function generateAutoLessonMd(
     source_hash: sourceInfo.hash,
   };
 
-  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + lesson.title + '\n\n## Scenario\n' + lesson.scenario + '\n\n## Solution\n' + lesson.solution + '\n\n---\n*Auto-extracted from customer-facing content. Review before using in agent training.*';
+  const sourceNote =
+    sourceInfo.type === 'internal'
+      ? 'Auto-extracted from internal reference content.'
+      : sourceInfo.type === 'agent'
+      ? 'Auto-extracted from an imported skill file.'
+      : 'Auto-extracted from customer-facing content.';
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    lesson.title +
+    '\n\n## Scenario\n' +
+    lesson.scenario +
+    '\n\n## Solution\n' +
+    lesson.solution +
+    `\n\n---\n*${sourceNote} Review before using in agent training.*`
+  );
 }
 
 function generateCustomerPageMd(data: EngramFormData, id: string): string {
@@ -445,6 +592,8 @@ function generateAutoEngramIndexMd(params: {
   const sourceField =
     params.sourceInfo.type === 'internal'
       ? { source_internal_doc: params.sourceInfo.id }
+      : params.sourceInfo.type === 'agent'
+      ? { source_agent_skill: params.sourceInfo.id }
       : { source_customer_page: params.sourceInfo.id };
   const frontmatter = {
     id: params.engramId,
@@ -512,15 +661,24 @@ function generateAutoSkillMd(params: {
     auto_extracted: true,
     ...(params.sourceInfo.type === 'internal'
       ? { source_internal_doc: params.sourceInfo.id }
+      : params.sourceInfo.type === 'agent'
+      ? { source_agent_skill: params.sourceInfo.id }
       : { source_customer_page: params.sourceInfo.id }),
   };
+
+  const sourceNote =
+    params.sourceInfo.type === 'internal'
+      ? 'Auto-extracted from internal reference content.'
+      : params.sourceInfo.type === 'agent'
+      ? 'Auto-extracted from an imported skill file.'
+      : 'Auto-extracted from customer-facing content.';
 
   return (
     '---\n' +
     yaml.dump(frontmatter) +
     '---\n# ' +
     params.title +
-    '\n\nAuto-extracted draft. Add outcome, triggers, and step-by-step instructions before use.'
+    `\n\n${sourceNote} Add outcome, triggers, and step-by-step instructions before use.`
   );
 }
 

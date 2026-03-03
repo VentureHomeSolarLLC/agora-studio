@@ -1,4 +1,5 @@
 import { EngramFormData, CONTENT_TYPE_CONFIG } from '@/types/engram';
+import { FileTreePreview } from '@/components/engram-builder/FileTreePreview';
 
 interface ReviewAndPublishProps {
   data: EngramFormData;
@@ -10,6 +11,7 @@ interface ReviewAndPublishProps {
 
 export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, contentType }: ReviewAndPublishProps) {
   const config = CONTENT_TYPE_CONFIG[contentType];
+  const isAgentImport = contentType === 'agent' && data.agentImportMode === 'monolith';
   const duplicateCheck = data.duplicateCheck;
   const requiresDuplicateConfirm = contentType === 'customer' && duplicateCheck?.similar && !data.duplicateResolutionConfirmed;
   const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -31,95 +33,112 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-')
       .substring(0, 50);
+  const datePrefix = new Date().toISOString().split('T')[0];
+  const treePaths: string[] = [];
+  const addTreePath = (path: string) => {
+    if (!path) return;
+    treePaths.push(path);
+  };
+  const addExtractionTreePaths = () => {
+    const extraction = data.agentExtraction;
+    if (!extraction) return;
+    const grouped: Record<string, { label: string; concepts: string[]; lessons: string[] }> = {};
+
+    extraction.concepts?.filter((c) => c.include).forEach((concept) => {
+      const label = concept.forEngram || data.title || 'general';
+      const key = toSlug(label);
+      grouped[key] = grouped[key] || { label, concepts: [], lessons: [] };
+      grouped[key].concepts.push(concept.title || 'concept');
+    });
+
+    extraction.lessons?.filter((l) => l.include).forEach((lesson) => {
+      const label = lesson.forEngram || data.title || 'general';
+      const key = toSlug(label);
+      grouped[key] = grouped[key] || { label, concepts: [], lessons: [] };
+      grouped[key].lessons.push(lesson.title || 'lesson');
+    });
+
+    Object.entries(grouped).forEach(([slug, group]) => {
+      addTreePath(`engrams-v2/${slug}/_index.md`);
+      addTreePath(`engrams-v2/${slug}/SKILL.md`);
+      group.concepts.forEach((title) => {
+        addTreePath(`engrams-v2/${slug}/concepts/${toSlug(title)}.md`);
+      });
+      group.lessons.forEach((title) => {
+        addTreePath(`engrams-v2/${slug}/lessons/${datePrefix}-${toSlug(title)}.md`);
+      });
+    });
+  };
+
+  const populateExtractionSummaries = () => {
+    const extraction = data.agentExtraction;
+    if (!extraction) return;
+    const grouped: Record<string, { label: string; concepts: number; lessons: number }> = {};
+
+    extraction.concepts?.filter((c) => c.include).forEach((concept) => {
+      const label = concept.forEngram || data.title || 'general';
+      const key = toSlug(label);
+      grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
+      grouped[key].concepts += 1;
+    });
+
+    extraction.lessons?.filter((l) => l.include).forEach((lesson) => {
+      const label = lesson.forEngram || data.title || 'general';
+      const key = toSlug(label);
+      grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
+      grouped[key].lessons += 1;
+    });
+
+    Object.entries(grouped).forEach(([slug, group]) => {
+      const parts = [];
+      if (group.concepts > 0) parts.push(`${group.concepts} concept${group.concepts > 1 ? 's' : ''}`);
+      if (group.lessons > 0) parts.push(`${group.lessons} lesson${group.lessons > 1 ? 's' : ''}`);
+      autoFiles.push(`${group.label} → engrams-v2/${slug} (${parts.join(', ')})`);
+    });
+
+    const mergeConcepts = extraction.concepts?.filter((c) => c.mergeTargetPath) || [];
+    const mergeLessons = extraction.lessons?.filter((l) => l.mergeTargetPath) || [];
+    mergeConcepts.forEach((concept) => {
+      mergeFiles.push(`Append concept to ${concept.mergeTargetPath} (${concept.mergeTargetTitle || 'existing concept'})`);
+    });
+    mergeLessons.forEach((lesson) => {
+      mergeFiles.push(`Append lesson to ${lesson.mergeTargetPath} (${lesson.mergeTargetTitle || 'existing lesson'})`);
+    });
+  };
   
   if (contentType === 'customer') {
     files.push({ name: 'Customer article', path: 'customer-pages/[id]/_index.md' });
-    
-    // Auto-extracted files
-    const conceptCount = data.agentExtraction?.concepts?.filter((c) => c.include).length || 0;
-    const lessonCount = data.agentExtraction?.lessons?.filter((l) => l.include).length || 0;
-    const mergeConcepts = data.agentExtraction?.concepts?.filter((c) => c.mergeTargetPath) || [];
-    const mergeLessons = data.agentExtraction?.lessons?.filter((l) => l.mergeTargetPath) || [];
-    
-    if (conceptCount > 0 || lessonCount > 0) {
-      const grouped: Record<string, { label: string; concepts: number; lessons: number }> = {};
-      data.agentExtraction?.concepts?.filter((c) => c.include).forEach((concept) => {
-        const label = concept.forEngram || data.title || 'general';
-        const key = toSlug(label);
-        grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
-        grouped[key].concepts += 1;
-      });
-      data.agentExtraction?.lessons?.filter((l) => l.include).forEach((lesson) => {
-        const label = lesson.forEngram || data.title || 'general';
-        const key = toSlug(label);
-        grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
-        grouped[key].lessons += 1;
-      });
-
-      Object.entries(grouped).forEach(([slug, group]) => {
-        const parts = [];
-        if (group.concepts > 0) parts.push(`${group.concepts} concept${group.concepts > 1 ? 's' : ''}`);
-        if (group.lessons > 0) parts.push(`${group.lessons} lesson${group.lessons > 1 ? 's' : ''}`);
-        autoFiles.push(`${group.label} → engrams-v2/${slug} (${parts.join(', ')})`);
-      });
-    }
-
-    if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
-      mergeConcepts.forEach((concept) => {
-        mergeFiles.push(`Append concept to ${concept.mergeTargetPath} (${concept.mergeTargetTitle || 'existing concept'})`);
-      });
-      mergeLessons.forEach((lesson) => {
-        mergeFiles.push(`Append lesson to ${lesson.mergeTargetPath} (${lesson.mergeTargetTitle || 'existing lesson'})`);
-      });
-    }
+    addTreePath(`customer-pages/${toSlug(data.title || 'article')}/_index.md`);
   } else if (contentType === 'internal') {
     files.push({ name: 'Internal doc', path: 'concepts/[id]/_index.md' });
-
-    const conceptCount = data.agentExtraction?.concepts?.filter((c) => c.include).length || 0;
-    const lessonCount = data.agentExtraction?.lessons?.filter((l) => l.include).length || 0;
-    const mergeConcepts = data.agentExtraction?.concepts?.filter((c) => c.mergeTargetPath) || [];
-    const mergeLessons = data.agentExtraction?.lessons?.filter((l) => l.mergeTargetPath) || [];
-
-    if (conceptCount > 0 || lessonCount > 0) {
-      const grouped: Record<string, { label: string; concepts: number; lessons: number }> = {};
-      data.agentExtraction?.concepts?.filter((c) => c.include).forEach((concept) => {
-        const label = concept.forEngram || data.title || 'general';
-        const key = toSlug(label);
-        grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
-        grouped[key].concepts += 1;
-      });
-      data.agentExtraction?.lessons?.filter((l) => l.include).forEach((lesson) => {
-        const label = lesson.forEngram || data.title || 'general';
-        const key = toSlug(label);
-        grouped[key] = grouped[key] || { label, concepts: 0, lessons: 0 };
-        grouped[key].lessons += 1;
-      });
-
-      Object.entries(grouped).forEach(([slug, group]) => {
-        const parts = [];
-        if (group.concepts > 0) parts.push(`${group.concepts} concept${group.concepts > 1 ? 's' : ''}`);
-        if (group.lessons > 0) parts.push(`${group.lessons} lesson${group.lessons > 1 ? 's' : ''}`);
-        autoFiles.push(`${group.label} → engrams-v2/${slug} (${parts.join(', ')})`);
-      });
-    }
-
-    if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
-      mergeConcepts.forEach((concept) => {
-        mergeFiles.push(`Append concept to ${concept.mergeTargetPath} (${concept.mergeTargetTitle || 'existing concept'})`);
-      });
-      mergeLessons.forEach((lesson) => {
-        mergeFiles.push(`Append lesson to ${lesson.mergeTargetPath} (${lesson.mergeTargetTitle || 'existing lesson'})`);
-      });
-    }
+    addTreePath(`concepts/${toSlug(data.title || 'internal-doc')}/_index.md`);
   } else {
-    files.push({ name: 'Engram index', path: 'engrams-v2/[id]/_index.md' });
-    files.push({ name: 'Skill procedure', path: 'engrams-v2/[id]/SKILL.md' });
-    if (data.concepts?.length) {
-      files.push({ name: 'Concepts', path: `engrams-v2/[id]/concepts/ (${data.concepts.length} files)` });
+    if (isAgentImport) {
+      files.push({ name: 'Engram routing', path: 'engrams-v2/<engram>/' });
+    } else {
+      files.push({ name: 'Engram index', path: 'engrams-v2/[id]/_index.md' });
+      files.push({ name: 'Skill procedure', path: 'engrams-v2/[id]/SKILL.md' });
+      if (data.concepts?.length) {
+        files.push({ name: 'Concepts', path: `engrams-v2/[id]/concepts/ (${data.concepts.length} files)` });
+      }
+      if (data.lessons?.length) {
+        files.push({ name: 'Lessons', path: `engrams-v2/[id]/lessons/ (${data.lessons.length} files)` });
+      }
+      const engramSlug = toSlug(data.title || 'engram');
+      addTreePath(`engrams-v2/${engramSlug}/_index.md`);
+      addTreePath(`engrams-v2/${engramSlug}/SKILL.md`);
+      (data.concepts || []).forEach((concept) => {
+        addTreePath(`engrams-v2/${engramSlug}/concepts/${toSlug(concept.title)}.md`);
+      });
+      (data.lessons || []).forEach((lesson) => {
+        addTreePath(`engrams-v2/${engramSlug}/lessons/${lesson.date || datePrefix}-${toSlug(lesson.title)}.md`);
+      });
     }
-    if (data.lessons?.length) {
-      files.push({ name: 'Lessons', path: `engrams-v2/[id]/lessons/ (${data.lessons.length} files)` });
-    }
+  }
+
+  if (contentType !== 'agent' || isAgentImport) {
+    addExtractionTreePaths();
+    populateExtractionSummaries();
   }
 
   return (
@@ -195,6 +214,11 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
             ))}
           </ul>
         </div>
+
+        <FileTreePreview
+          paths={treePaths}
+          note="This is a preview of where new files will land. Existing files may be updated in place."
+        />
 
         {autoFiles.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
