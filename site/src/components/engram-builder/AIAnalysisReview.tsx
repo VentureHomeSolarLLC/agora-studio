@@ -43,7 +43,8 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const [lessonYamlPreview, setLessonYamlPreview] = useState<Record<number, boolean>>({});
   const baseOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const isKnowledgeOnly = data.agentProfile?.skillMode === 'knowledge';
-  const isAgentImport = data.contentType === 'agent' && data.agentImportMode === 'monolith';
+  const isAgentWizard = data.contentType === 'agent';
+  const isAgentImport = isAgentWizard && data.agentImportMode === 'monolith';
   const AUTO_INCLUDE_CONFIDENCE = 0.7;
   const today = new Date().toISOString().split('T')[0];
   const infrastructure = analysis?.infrastructureFeedback;
@@ -174,7 +175,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   }, [isAgentImport, infrastructure, data.agentProfile?.domain, data.agentProfile?.subdomains]);
 
   const frontmatterFields = useMemo(() => {
-    if (!isAgentImport) return [];
+    if (!isAgentWizard) return [];
     const isKnowledge = data.agentProfile?.skillMode === 'knowledge';
     return [
       {
@@ -333,7 +334,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         required: !isKnowledge,
       },
     ];
-  }, [isAgentImport, data.agentProfile, onChange]);
+  }, [isAgentWizard, data.agentProfile, onChange]);
 
   const missingFrontmatterFields = useMemo(() => {
     if (!frontmatterFields.length) return [];
@@ -346,21 +347,22 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   }, [frontmatterFields]);
 
   const suggestionsByKey = useMemo(() => {
-    if (!isAgentImport) return {};
+    if (!isAgentWizard) return {};
     const suggestedProfile = analysis?.prefill?.agentProfile || {};
+    const suggestedSkill = analysis?.skill || analysis?.skillDraft || {};
     return {
-      domain: infrastructure?.suggestedDomain || suggestedProfile.domain,
-      subdomains: infrastructure?.suggestedSubdomains || suggestedProfile.subdomains,
-      triggers: suggestedProfile.triggers,
-      outcome: suggestedProfile.outcome,
-      riskLevel: suggestedProfile.riskLevel,
-      requiredInputs: suggestedProfile.requiredInputs,
-      constraints: suggestedProfile.constraints,
-      allowedSystems: suggestedProfile.allowedSystems,
-      escalationCriteria: suggestedProfile.escalationCriteria,
-      stopConditions: suggestedProfile.stopConditions,
+      domain: infrastructure?.suggestedDomain || suggestedProfile.domain || suggestedSkill.domain,
+      subdomains: infrastructure?.suggestedSubdomains || suggestedProfile.subdomains || suggestedSkill.subdomains,
+      triggers: suggestedProfile.triggers || suggestedSkill.triggers,
+      outcome: suggestedProfile.outcome || suggestedSkill.outcome,
+      riskLevel: suggestedProfile.riskLevel || suggestedSkill.riskLevel,
+      requiredInputs: suggestedProfile.requiredInputs || suggestedSkill.requiredInputs,
+      constraints: suggestedProfile.constraints || suggestedSkill.constraints,
+      allowedSystems: suggestedProfile.allowedSystems || suggestedSkill.allowedSystems,
+      escalationCriteria: suggestedProfile.escalationCriteria || suggestedSkill.escalationCriteria,
+      stopConditions: suggestedProfile.stopConditions || suggestedSkill.stopConditions,
     };
-  }, [isAgentImport, analysis?.prefill, infrastructure]);
+  }, [isAgentWizard, analysis?.prefill, analysis?.skill, analysis?.skillDraft, infrastructure]);
 
   const formatSuggestion = (value: any) => {
     if (Array.isArray(value)) return value.filter(Boolean).join(', ');

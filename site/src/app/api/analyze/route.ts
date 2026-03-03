@@ -759,7 +759,37 @@ function findHumanDependencyWarnings(content: string): string[] {
   if (!content) return [];
   const warnings: string[] = [];
   const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-  const actionRegex = /\b(report to|notify|ping|ask|escalate to|send to|message|slack|email)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/g;
+  const actionPhrases =
+    'report to|notify|ping|ask|escalate to|send to|message|slack|email|handoff to|hand off to|hand over to|handover to';
+  const nameRegex = new RegExp(`\\b(${actionPhrases})\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)?)`, 'g');
+  const mentionRegex = new RegExp(`\\b(${actionPhrases})\\s+(@[\\w.-]+)`, 'gi');
+  const roleRegex = new RegExp(
+    `\\b(${actionPhrases})\\s+(the\\s+)?(team|manager|owner|lead|supervisor|director|vp|finance|sales|ops|operations|support|engineering|it|legal|hr|compliance|customer success|csm|project manager|pm)\\b`,
+    'gi'
+  );
+  const genericRegex = new RegExp(
+    `\\b(${actionPhrases})\\s+(the\\s+|a\\s+|an\\s+)?([A-Za-z][\\w-]+(?:\\s+[A-Za-z][\\w-]+){0,2})`,
+    'gi'
+  );
+  const nonHumanTargets = [
+    'system',
+    'api',
+    'automation',
+    'pipeline',
+    'script',
+    'bot',
+    'service',
+    'queue',
+    'database',
+    'repo',
+    'github',
+    'jira',
+    'asana',
+    'notion',
+    'endpoint',
+    'server',
+    'webhook',
+  ];
   let match: RegExpExecArray | null;
 
   const emails = content.match(emailRegex) || [];
@@ -767,7 +797,22 @@ function findHumanDependencyWarnings(content: string): string[] {
     warnings.push(`Human dependency: "${email}"`);
   });
 
-  while ((match = actionRegex.exec(content))) {
+  while ((match = mentionRegex.exec(content))) {
+    warnings.push(`Human dependency: "${match[0].trim()}"`);
+  }
+
+  while ((match = roleRegex.exec(content))) {
+    warnings.push(`Human dependency: "${match[0].trim()}"`);
+  }
+
+  while ((match = nameRegex.exec(content))) {
+    warnings.push(`Human dependency: "${match[0].trim()}"`);
+  }
+
+  while ((match = genericRegex.exec(content))) {
+    const target = (match[3] || '').toLowerCase();
+    if (!target) continue;
+    if (nonHumanTargets.some((term) => target.includes(term))) continue;
     warnings.push(`Human dependency: "${match[0].trim()}"`);
   }
 
