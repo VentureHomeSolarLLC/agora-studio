@@ -37,6 +37,10 @@ export function transformToEngram(formData: EngramFormData) {
     const appendConcepts = mergeConcepts.filter((c) => c.mergeStrategy !== 'replace');
     const replaceLessons = mergeLessons.filter((l) => l.mergeStrategy === 'replace');
     const appendLessons = mergeLessons.filter((l) => l.mergeStrategy !== 'replace');
+    const replaceConcepts = mergeConcepts.filter((c) => c.mergeStrategy === 'replace');
+    const appendConcepts = mergeConcepts.filter((c) => c.mergeStrategy !== 'replace');
+    const replaceLessons = mergeLessons.filter((l) => l.mergeStrategy === 'replace');
+    const appendLessons = mergeLessons.filter((l) => l.mergeStrategy !== 'replace');
 
     const grouped = groupAgentExtracts(extractedConcepts, extractedLessons, engramId);
     const repoRoot = getRepoRoot();
