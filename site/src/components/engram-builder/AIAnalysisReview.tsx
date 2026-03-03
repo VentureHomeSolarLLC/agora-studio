@@ -55,8 +55,8 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       .replace(/\s+/g, '-')
       .substring(0, 50);
 
-  const skillPreview = useMemo(() => {
-    if (!isAgentImport) return '';
+  const { frontmatterText, skillPreview } = useMemo(() => {
+    if (!isAgentImport) return { frontmatterText: '', skillPreview: '' };
     const engramId = slugify(data.title || 'engram');
     const frontmatter = {
       engram_id: engramId,
@@ -98,7 +98,10 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         }
       });
     }
-    return parts.join('\n');
+    return {
+      frontmatterText: yaml.dump(frontmatter).trim(),
+      skillPreview: parts.join('\n'),
+    };
   }, [
     isAgentImport,
     data.title,
@@ -106,6 +109,39 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     data.agentProfile,
     data.skill,
   ]);
+
+  const estimateTokens = (text: string) => {
+    if (!text) return 0;
+    return Math.max(1, Math.ceil(text.length / 4));
+  };
+
+  const tokenStatus = (tokens: number) => {
+    if (tokens < 800) return { label: 'Light', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' };
+    if (tokens < 1600) return { label: 'Balanced', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' };
+    return { label: 'Heavy', color: 'text-red-700', bg: 'bg-red-50 border-red-200' };
+  };
+
+  const tokenMetrics = useMemo(() => {
+    if (!isAgentImport) return null;
+    const skillText = skillPreview || '';
+    const frontmatterTokens = estimateTokens(frontmatterText || '');
+    const skillTokens = estimateTokens(skillText);
+    const extractionConcepts = data.agentExtraction?.concepts?.filter((c) => c.include) || [];
+    const extractionLessons = data.agentExtraction?.lessons?.filter((l) => l.include) || [];
+    const contextText = [
+      skillText,
+      ...extractionConcepts.map((concept) => `${concept.title}\n${concept.content || ''}`),
+      ...extractionLessons.map((lesson) => `${lesson.title}\n${lesson.scenario || ''}\n${lesson.solution || ''}`),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    const contextTokens = estimateTokens(contextText);
+    return {
+      frontmatter: { tokens: frontmatterTokens, status: tokenStatus(frontmatterTokens) },
+      skill: { tokens: skillTokens, status: tokenStatus(skillTokens) },
+      context: { tokens: contextTokens, status: tokenStatus(contextTokens) },
+    };
+  }, [isAgentImport, skillPreview, frontmatterText, data.agentExtraction]);
 
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
@@ -636,6 +672,32 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
               </div>
             )}
           </div>
+
+          {tokenMetrics && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">Token Footprint</h3>
+                <span className="text-xs text-gray-500">Approximate</span>
+              </div>
+              <div className="space-y-2 text-xs text-gray-700">
+                {([
+                  { label: 'Frontmatter', data: tokenMetrics.frontmatter },
+                  { label: 'Skill file', data: tokenMetrics.skill },
+                  { label: 'Engram with context', data: tokenMetrics.context },
+                ] as const).map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-gray-800">{item.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">{item.data.tokens} tokens</span>
+                      <span className={`px-2 py-0.5 rounded-full border ${item.data.status.bg} ${item.data.status.color}`}>
+                        {item.data.status.label}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
