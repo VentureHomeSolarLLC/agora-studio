@@ -345,6 +345,71 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     return frontmatterFields.filter((field) => field.required && isEmpty(field.value));
   }, [frontmatterFields]);
 
+  const suggestionsByKey = useMemo(() => {
+    if (!isAgentImport) return {};
+    const suggestedProfile = analysis?.prefill?.agentProfile || {};
+    return {
+      domain: infrastructure?.suggestedDomain || suggestedProfile.domain,
+      subdomains: infrastructure?.suggestedSubdomains || suggestedProfile.subdomains,
+      triggers: suggestedProfile.triggers,
+      outcome: suggestedProfile.outcome,
+      riskLevel: suggestedProfile.riskLevel,
+      requiredInputs: suggestedProfile.requiredInputs,
+      constraints: suggestedProfile.constraints,
+      allowedSystems: suggestedProfile.allowedSystems,
+      escalationCriteria: suggestedProfile.escalationCriteria,
+      stopConditions: suggestedProfile.stopConditions,
+    };
+  }, [isAgentImport, analysis?.prefill, infrastructure]);
+
+  const formatSuggestion = (value: any) => {
+    if (Array.isArray(value)) return value.filter(Boolean).join(', ');
+    if (typeof value === 'string') return value;
+    return '';
+  };
+
+  const applySuggestedFrontmatter = () => {
+    if (!data.agentProfile) return;
+    const nextProfile = { ...data.agentProfile };
+    const isEmpty = (value: any) => {
+      if (Array.isArray(value)) return value.length === 0;
+      if (typeof value === 'string') return value.trim().length === 0;
+      return value === undefined || value === null;
+    };
+    const toList = (value: any) => {
+      if (Array.isArray(value)) return value.filter(Boolean);
+      if (typeof value === 'string') {
+        return value
+          .split(/[,;\n]/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+      return [];
+    };
+
+    missingFrontmatterFields.forEach((field) => {
+      const suggestion = (suggestionsByKey as any)[field.key];
+      if (isEmpty(field.value) && !isEmpty(suggestion)) {
+        if (field.key === 'subdomains') {
+          nextProfile.subdomains = toList(suggestion);
+        } else if (
+          field.key === 'triggers' ||
+          field.key === 'requiredInputs' ||
+          field.key === 'constraints' ||
+          field.key === 'allowedSystems' ||
+          field.key === 'escalationCriteria' ||
+          field.key === 'stopConditions'
+        ) {
+          (nextProfile as any)[field.key] = toList(suggestion);
+        } else {
+          (nextProfile as any)[field.key] = suggestion;
+        }
+      }
+    });
+
+    onChange({ agentProfile: nextProfile });
+  };
+
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
       const normalized =
@@ -981,7 +1046,17 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium text-gray-900">Complete Frontmatter</h3>
-                <span className="text-xs text-gray-500">Fill required fields below</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">Fill required fields below</span>
+                  <button
+                    type="button"
+                    onClick={applySuggestedFrontmatter}
+                    disabled={missingFrontmatterFields.every((field) => !formatSuggestion((suggestionsByKey as any)[field.key]))}
+                    className="text-xs px-3 py-1 rounded-full bg-emerald-600 text-white disabled:opacity-40"
+                  >
+                    Apply suggestions
+                  </button>
+                </div>
               </div>
               <div className="space-y-3">
                 {missingFrontmatterFields.map((field) => (
@@ -1016,6 +1091,11 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                     )}
                     {field.key === 'subdomains' && (
                       <p className="text-[11px] text-gray-400 mt-1">One per line or comma-separated.</p>
+                    )}
+                    {formatSuggestion((suggestionsByKey as any)[field.key]) && (
+                      <p className="text-[11px] text-emerald-700 mt-1">
+                        Suggested: {formatSuggestion((suggestionsByKey as any)[field.key])}
+                      </p>
                     )}
                   </div>
                 ))}
