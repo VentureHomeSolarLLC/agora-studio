@@ -193,6 +193,7 @@ function buildAutoConceptPreview(
   sourceInfo: SourceInfo,
   conceptId: string
 ): string {
+  const today = new Date().toISOString().split('T')[0];
   const sourceField =
     sourceInfo.type === 'internal'
       ? { source_internal_doc: sourceInfo.id }
@@ -212,6 +213,7 @@ function buildAutoConceptPreview(
     type: 'concept',
     auto_extracted: true,
     for_engram: concept.forEngram || 'general',
+    last_verified: today,
     ...sourceField,
     source_hash: sourceInfo.hash,
     tags: ['auto-extracted', sourceTag],

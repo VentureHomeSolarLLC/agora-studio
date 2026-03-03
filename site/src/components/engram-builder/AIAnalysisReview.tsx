@@ -44,6 +44,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const isKnowledgeOnly = data.agentProfile?.skillMode === 'knowledge';
   const isAgentImport = data.contentType === 'agent' && data.agentImportMode === 'monolith';
   const AUTO_INCLUDE_CONFIDENCE = 0.7;
+  const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
@@ -606,6 +607,9 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                         <p className="text-xs text-amber-700 mt-1">
                           {concept.riskLevel === 'high' ? 'High-risk content — not auto-selected.' : 'Low confidence — not auto-selected.'}
                         </p>
+                      )}
+                      {!isDuplicate && (
+                        <p className="text-xs text-gray-500 mt-1">Last verified will be set to {today}.</p>
                       )}
                       {isDuplicate && topMatch && (
                         <div className="text-xs text-amber-700 mt-2">

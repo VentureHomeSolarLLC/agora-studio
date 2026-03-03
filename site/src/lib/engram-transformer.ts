@@ -274,6 +274,7 @@ function generateAutoConceptMd(
   sourceInfo: SourceInfo,
   conceptId: string
 ): string {
+  const today = getTodayDate();
   const sourceField =
     sourceInfo.type === 'internal'
       ? { source_internal_doc: sourceInfo.id }
@@ -293,6 +294,7 @@ function generateAutoConceptMd(
     type: 'concept',
     auto_extracted: true,
     for_engram: concept.forEngram || 'general',
+    last_verified: today,
     ...sourceField,
     source_hash: sourceInfo.hash,
     tags: ['auto-extracted', sourceTag],
@@ -505,11 +507,13 @@ function generateSkillMd(data: EngramFormData, engramId: string): string {
 }
 
 function generateConceptFileMd(concept: any, engramId: string): string {
+  const today = getTodayDate();
   const frontmatter = {
     engram_id: engramId,
     concept_id: slugify(concept.title),
     title: concept.title,
     type: 'concept',
+    last_verified: today,
     tags: concept.tags || [],
   };
 
@@ -801,6 +805,10 @@ function getUniqueFileName(
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
+}
+
+function getTodayDate(): string {
+  return new Date().toISOString().split('T')[0];
 }
 
 function computeSourceHash(title: string, content: string): string {
