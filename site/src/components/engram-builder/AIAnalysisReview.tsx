@@ -755,6 +755,8 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                   <p className="text-xs text-gray-500 mt-1">
                     {match.type === 'customer-page'
                       ? 'Customer page'
+                      : match.type === 'knowledge'
+                      ? 'Knowledge note'
                       : match.type === 'concept'
                       ? 'Concept'
                       : match.type === 'lesson'
@@ -1336,11 +1338,25 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between gap-4 mb-3">
             <div>
-              <h3 className="font-medium text-blue-900">AI Agent Extraction</h3>
+              <h3 className="font-medium text-blue-900">
+                {data.contentType === 'customer' || data.contentType === 'internal'
+                  ? 'AI Knowledge Extraction'
+                  : 'AI Agent Extraction'}
+              </h3>
               <p className="text-sm text-blue-800">
-                Select which items should become draft Engram files. Selected items are saved under
-                <span className="font-medium"> engrams-v2/&lt;engram&gt; </span>
-                and missing Engrams are created automatically.
+                {data.contentType === 'customer' || data.contentType === 'internal' ? (
+                  <>
+                    Select which items should become knowledge notes. Selected items are saved under
+                    <span className="font-medium"> knowledge/&lt;domain&gt; </span>
+                    for agent lookup.
+                  </>
+                ) : (
+                  <>
+                    Select which items should become draft Engram files. Selected items are saved under
+                    <span className="font-medium"> engrams-v2/&lt;engram&gt; </span>
+                    and missing Engrams are created automatically.
+                  </>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-2">

@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
 type IndexedDoc = {
   title: string;
-  type: 'customer-page' | 'concept' | 'lesson' | 'skill' | 'engram' | 'engram-v2';
+  type: 'customer-page' | 'concept' | 'lesson' | 'skill' | 'engram' | 'engram-v2' | 'knowledge';
   path: string;
   viewUrl?: string;
   tokens: Map<string, number>;
@@ -86,7 +86,7 @@ type FrontmatterDoc = {
 
 function enrichAgentTrainingPotential(analysis: any) {
   if (!analysis?.agentTrainingPotential) return analysis;
-  const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
+  const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2', 'knowledge']);
   if (Array.isArray(analysis.agentTrainingPotential.suggestedConcepts)) {
     analysis.agentTrainingPotential.suggestedConcepts = analysis.agentTrainingPotential.suggestedConcepts.map((concept: any) => {
       const duplicate = findDuplicatesForText(concept.title || 'Untitled concept', concept.content || '', agentTypes);
@@ -502,6 +502,32 @@ function loadDocuments(): IndexedDoc[] {
     }
   }
 
+  const knowledgeDir = path.join(repoRoot, 'knowledge');
+  if (fs.existsSync(knowledgeDir)) {
+    const domainEntries = fs.readdirSync(knowledgeDir, { withFileTypes: true });
+    for (const entry of domainEntries) {
+      if (!entry.isDirectory()) continue;
+      const domainPath = path.join(knowledgeDir, entry.name);
+      const files = fs.readdirSync(domainPath);
+      for (const file of files) {
+        if (!file.endsWith('.md') || file === '_index.md') continue;
+        const filePath = path.join(domainPath, file);
+        const slug = file.replace(/\.md$/, '');
+        const { data, content } = matter(fs.readFileSync(filePath, 'utf-8'));
+        const title = data.title || slug;
+        const weighted = `${title}\n${title}\n${content}`;
+        const vector = buildVector(tokenize(weighted));
+        docs.push({
+          title,
+          type: 'knowledge',
+          path: `knowledge/${entry.name}/${file}`,
+          tokens: vector.tokens,
+          norm: vector.norm,
+        });
+      }
+    }
+  }
+
   const engramsDir = path.join(repoRoot, 'engrams');
   if (fs.existsSync(engramsDir)) {
     const entries = fs.readdirSync(engramsDir, { withFileTypes: true });
@@ -672,9 +698,9 @@ function getAllowedTypes(contentType: string): Set<IndexedDoc['type']> {
     return new Set(['customer-page']);
   }
   if (contentType === 'internal') {
-    return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
+    return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2', 'knowledge']);
   }
-  return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
+  return new Set(['concept', 'lesson', 'skill', 'engram', 'engram-v2', 'knowledge']);
 }
 
 function findDuplicatesForText(
@@ -709,7 +735,7 @@ function findDuplicatesForText(
 }
 
 function findRelatedReferences(title: string, content: string, excludePath?: string) {
-  const allowed = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
+  const allowed = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2', 'knowledge']);
   const { matches } = findDuplicatesForText(title, content, allowed, {
     matchThreshold: 0.1,
     similarThreshold: 0.2,

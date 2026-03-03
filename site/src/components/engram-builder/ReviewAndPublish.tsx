@@ -34,6 +34,7 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
       .replace(/\s+/g, '-')
       .substring(0, 50);
   const datePrefix = new Date().toISOString().split('T')[0];
+  const knowledgeRoot = 'knowledge';
   const treePaths: string[] = [];
   const addTreePath = (path: string) => {
     if (!path) return;
@@ -43,6 +44,9 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
     const extraction = data.agentExtraction;
     if (!extraction) return;
     const grouped: Record<string, { label: string; concepts: string[]; lessons: string[] }> = {};
+    if (contentType === 'customer' || contentType === 'internal') {
+      addTreePath(`${knowledgeRoot}/_index.md`);
+    }
 
     extraction.concepts?.filter((c) => c.include).forEach((concept) => {
       const label = concept.forEngram || data.title || 'general';
@@ -59,14 +63,24 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
     });
 
     Object.entries(grouped).forEach(([slug, group]) => {
-      addTreePath(`engrams-v2/${slug}/_index.md`);
-      addTreePath(`engrams-v2/${slug}/SKILL.md`);
-      group.concepts.forEach((title) => {
-        addTreePath(`engrams-v2/${slug}/concepts/${toSlug(title)}.md`);
-      });
-      group.lessons.forEach((title) => {
-        addTreePath(`engrams-v2/${slug}/lessons/${datePrefix}-${toSlug(title)}.md`);
-      });
+      if (contentType === 'customer' || contentType === 'internal') {
+        addTreePath(`${knowledgeRoot}/${slug}/_index.md`);
+        group.concepts.forEach((title) => {
+          addTreePath(`${knowledgeRoot}/${slug}/${toSlug(title)}.md`);
+        });
+        group.lessons.forEach((title) => {
+          addTreePath(`${knowledgeRoot}/${slug}/${datePrefix}-${toSlug(title)}.md`);
+        });
+      } else {
+        addTreePath(`engrams-v2/${slug}/_index.md`);
+        addTreePath(`engrams-v2/${slug}/SKILL.md`);
+        group.concepts.forEach((title) => {
+          addTreePath(`engrams-v2/${slug}/concepts/${toSlug(title)}.md`);
+        });
+        group.lessons.forEach((title) => {
+          addTreePath(`engrams-v2/${slug}/lessons/${datePrefix}-${toSlug(title)}.md`);
+        });
+      }
     });
   };
 
@@ -93,7 +107,11 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
       const parts = [];
       if (group.concepts > 0) parts.push(`${group.concepts} concept${group.concepts > 1 ? 's' : ''}`);
       if (group.lessons > 0) parts.push(`${group.lessons} lesson${group.lessons > 1 ? 's' : ''}`);
-      autoFiles.push(`${group.label} → engrams-v2/${slug} (${parts.join(', ')})`);
+      if (contentType === 'customer' || contentType === 'internal') {
+        autoFiles.push(`${group.label} → ${knowledgeRoot}/${slug} (${parts.join(', ')})`);
+      } else {
+        autoFiles.push(`${group.label} → engrams-v2/${slug} (${parts.join(', ')})`);
+      }
     });
 
     const mergeConcepts = extraction.concepts?.filter((c) => c.mergeTargetPath) || [];
@@ -183,6 +201,8 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
                   <span className="text-xs text-amber-700">
                     {match.type === 'customer-page'
                       ? 'Customer page'
+                      : match.type === 'knowledge'
+                      ? 'Knowledge note'
                       : match.type === 'concept'
                       ? 'Concept'
                       : match.type === 'lesson'
@@ -239,7 +259,9 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
               ))}
             </ul>
             <p className="text-xs text-blue-600 mt-2">
-              These will be created as draft Engram files for review under `engrams-v2`.
+              {contentType === 'customer' || contentType === 'internal'
+                ? 'These will be created as knowledge notes for agent lookup.'
+                : 'These will be created as draft Engram files for review under `engrams-v2`.'}
             </p>
           </div>
         )}
