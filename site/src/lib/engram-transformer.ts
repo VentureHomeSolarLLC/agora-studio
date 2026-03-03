@@ -22,11 +22,21 @@ type EngramGroup = { engramTitle: string; concepts: ExtractionConcept[]; lessons
 type IndexEntry = { title: string; fileName: string };
 type SourceInfo = { id: string; type: 'customer' | 'internal' | 'agent'; hash: string };
 
+function getRequiredIntegrationNames(formData: EngramFormData): string[] {
+  const list = (formData as any)?.aiAnalysis?.requiredIntegrations || [];
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item: any) => item?.name || item)
+    .map((name: any) => String(name).trim())
+    .filter(Boolean);
+}
+
 export function transformToEngram(formData: EngramFormData) {
   const engramId = slugify(formData.title);
   const config = CONTENT_TYPE_CONFIG[formData.contentType];
   
   const files: Record<string, string> = {};
+  const requiredIntegrations = getRequiredIntegrationNames(formData);
 
   if (formData.contentType === 'agent' && formData.agentImportMode === 'monolith') {
     const extractedConcepts = formData.agentExtraction?.concepts?.filter((c) => c.include) || [];
@@ -126,6 +136,7 @@ export function transformToEngram(formData: EngramFormData) {
           sourceInfo,
           conceptEntries,
           lessonEntries,
+          requiredIntegrations,
         });
         files[`engrams-v2/${targetEngramId}/_index.md`] = indexContent;
       }
@@ -262,6 +273,7 @@ export function transformToEngram(formData: EngramFormData) {
           sourceInfo,
           conceptEntries,
           lessonEntries,
+          requiredIntegrations,
         });
         files[`engrams-v2/${targetEngramId}/_index.md`] = indexContent;
       }
@@ -292,7 +304,7 @@ export function transformToEngram(formData: EngramFormData) {
       });
     }
   } else {
-    files[`engrams-v2/${engramId}/_index.md`] = generateIndexMd(formData, engramId);
+    files[`engrams-v2/${engramId}/_index.md`] = generateIndexMd(formData, engramId, requiredIntegrations);
     files[`engrams-v2/${engramId}/SKILL.md`] = generateSkillMd(formData, engramId);
     
     if (formData.concepts?.length) {
@@ -452,7 +464,7 @@ function generateConceptMd(data: EngramFormData, id: string): string {
   return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + (data.description || '') + '\n\n' + (data.rawContent || '');
 }
 
-function generateIndexMd(data: EngramFormData, engramId: string): string {
+function generateIndexMd(data: EngramFormData, engramId: string, requiredIntegrations: string[]): string {
   const frontmatter = {
     id: engramId,
     title: data.title,
@@ -464,12 +476,16 @@ function generateIndexMd(data: EngramFormData, engramId: string): string {
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
     version: '1.0',
+    required_integrations: requiredIntegrations || [],
   };
 
   const conceptsList = data.concepts?.map(c => '- [' + slugify(c.title) + '](concepts/' + slugify(c.title) + '.md) — ' + c.title).join('\n') || '- No concepts yet';
   const lessonsList = data.lessons?.map(l => '- [' + (l.date || '2024-01-01') + '-' + slugify(l.title) + '](lessons/' + (l.date || '2024-01-01') + '-' + slugify(l.title) + '.md) — ' + l.title).join('\n') || '- No lessons yet';
+  const integrationsList = (requiredIntegrations && requiredIntegrations.length > 0)
+    ? requiredIntegrations.map((item) => `- ${item}`).join('\n')
+    : '- None listed';
 
-  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + (data.description || '') + '\n\n## SKILL\nFile: SKILL.md\nCore procedure for this engram.\n\n## CONCEPTS\n' + conceptsList + '\n\n## LESSONS\n' + lessonsList;
+  return '---\n' + yaml.dump(frontmatter) + '---\n# ' + data.title + '\n\n' + (data.description || '') + '\n\n## SKILL\nFile: SKILL.md\nCore procedure for this engram.\n\n## REQUIRED INTEGRATIONS\n' + integrationsList + '\n\n## CONCEPTS\n' + conceptsList + '\n\n## LESSONS\n' + lessonsList;
 }
 
 function generateSkillMd(data: EngramFormData, engramId: string): string {
@@ -730,6 +746,7 @@ function generateAutoEngramIndexMd(params: {
   sourceInfo: SourceInfo;
   conceptEntries: IndexEntry[];
   lessonEntries: IndexEntry[];
+  requiredIntegrations: string[];
 }): string {
   const tags = Array.from(new Set([...(params.tags || []), 'auto-extracted']));
   const sourceField =
@@ -750,6 +767,7 @@ function generateAutoEngramIndexMd(params: {
     updated: new Date().toISOString(),
     version: '1.0',
     auto_extracted: true,
+    required_integrations: params.requiredIntegrations || [],
     ...sourceField,
   };
 
@@ -765,6 +783,10 @@ function generateAutoEngramIndexMd(params: {
         .join('\n')
     : '- No lessons yet';
 
+  const integrationsList = (params.requiredIntegrations && params.requiredIntegrations.length > 0)
+    ? params.requiredIntegrations.map((item) => `- ${item}`).join('\n')
+    : '- None listed';
+
   return (
     '---\n' +
     yaml.dump(frontmatter) +
@@ -772,7 +794,9 @@ function generateAutoEngramIndexMd(params: {
     params.title +
     '\n\n' +
     params.description +
-    '\n\n## SKILL\nFile: SKILL.md\nCore procedure for this engram.\n\n## CONCEPTS\n' +
+    '\n\n## SKILL\nFile: SKILL.md\nCore procedure for this engram.\n\n## REQUIRED INTEGRATIONS\n' +
+    integrationsList +
+    '\n\n## CONCEPTS\n' +
     conceptsList +
     '\n\n## LESSONS\n' +
     lessonsList

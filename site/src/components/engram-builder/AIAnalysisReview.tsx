@@ -49,6 +49,16 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const today = new Date().toISOString().split('T')[0];
   const infrastructure = analysis?.infrastructureFeedback;
   const frontmatterOverlap = analysis?.frontmatterOverlap;
+  const requiredIntegrations = Array.isArray(analysis?.requiredIntegrations)
+    ? analysis.requiredIntegrations
+    : [];
+  const allowedSystems = data.agentProfile?.allowedSystems || [];
+  const allowedNormalized = allowedSystems.map((system) => system.toLowerCase());
+  const missingAllowedSystems = requiredIntegrations.filter((item: any) => {
+    if (!allowedNormalized.length) return true;
+    const name = (item?.name || '').toLowerCase();
+    return !allowedNormalized.some((system) => system.includes(name));
+  });
 
   const slugify = (value: string) =>
     value
@@ -1046,6 +1056,42 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isAgentWizard && requiredIntegrations.length > 0 && (
+            <div className="bg-white border border-amber-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">Required Integrations</h3>
+                <span className="text-xs text-amber-700">Warning only</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-2">
+                These tools, APIs, or credential files were referenced in the skill content.
+              </p>
+              <div className="space-y-2 text-xs text-gray-700">
+                {requiredIntegrations.map((item: any, idx: number) => {
+                  const name = (item?.name || '').toLowerCase();
+                  const missing = !allowedNormalized.length || !allowedNormalized.some((system) => system.includes(name));
+                  return (
+                    <div key={`req-${idx}`} className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900">{item.name}</div>
+                        {Array.isArray(item.evidence) && item.evidence.length > 0 && (
+                          <div className="text-[11px] text-gray-500">Detected: {item.evidence.join(', ')}</div>
+                        )}
+                      </div>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${missing ? 'border-amber-300 text-amber-700 bg-amber-50' : 'border-emerald-200 text-emerald-700 bg-emerald-50'}`}>
+                        {missing ? 'Not in allowed systems' : 'Allowed'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {missingAllowedSystems.length > 0 && (
+                <p className="text-[11px] text-amber-700 mt-2">
+                  Add these to “Allowed Systems” if the agent is expected to use them.
+                </p>
+              )}
             </div>
           )}
 

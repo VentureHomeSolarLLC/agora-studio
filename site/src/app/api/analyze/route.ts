@@ -28,12 +28,14 @@ export async function POST(request: NextRequest) {
         analysis = enrichAgentTrainingPotential(analysis);
         analysis = attachExtractionPreviews(analysis, 'customer', title, content);
         analysis = appendProcessDependencyWarnings(analysis, content);
+        analysis = appendRequiredIntegrations(analysis, content);
         break;
       case 'internal':
         analysis = await analyzeInternalContent(content, title);
         analysis = enrichAgentTrainingPotential(analysis);
         analysis = attachExtractionPreviews(analysis, 'internal', title, content);
         analysis = appendProcessDependencyWarnings(analysis, content);
+        analysis = appendRequiredIntegrations(analysis, content);
         break;
       case 'agent':
         if (importMode === 'monolith') {
@@ -41,9 +43,11 @@ export async function POST(request: NextRequest) {
           analysis = enrichAgentTrainingPotential(analysis);
           analysis = attachExtractionPreviews(analysis, 'agent', title, content);
           analysis = appendProcessDependencyWarnings(analysis, content);
+          analysis = appendRequiredIntegrations(analysis, content);
         } else {
           analysis = await analyzeAgentInstructions(content, title, agentMode);
           analysis = appendProcessDependencyWarnings(analysis, content);
+          analysis = appendRequiredIntegrations(analysis, content);
         }
         break;
       default:
@@ -745,6 +749,65 @@ function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
     console.warn('Failed to parse AI JSON response. Returning fallback.');
     return fallback;
   }
+}
+
+type RequiredIntegration = {
+  name: string;
+  type: 'api' | 'cli' | 'auth' | 'file' | 'system';
+  evidence: string[];
+};
+
+function detectRequiredIntegrations(content: string): RequiredIntegration[] {
+  if (!content) return [];
+  const hits = new Map<string, RequiredIntegration>();
+  const add = (name: string, type: RequiredIntegration['type'], evidence: string) => {
+    const key = `${type}:${name}`;
+    const existing = hits.get(key);
+    if (existing) {
+      if (!existing.evidence.includes(evidence)) existing.evidence.push(evidence);
+      return;
+    }
+    hits.set(key, { name, type, evidence: [evidence] });
+  };
+
+  const lower = content.toLowerCase();
+
+  if (lower.includes('graph.microsoft.com')) {
+    add('Microsoft Graph API', 'api', 'graph.microsoft.com');
+  }
+  if (lower.includes('login.microsoftonline.com') || lower.includes('microsoftonline.com')) {
+    add('Microsoft OAuth (Azure AD)', 'auth', 'login.microsoftonline.com');
+  }
+  if (lower.includes('salesforce.com')) {
+    add('Salesforce API', 'api', 'salesforce.com');
+  }
+  if (lower.includes('taskray') || lower.includes('taskray__')) {
+    add('Salesforce TaskRay', 'system', 'TaskRay objects');
+  }
+  if (lower.includes('gog drive') || lower.includes('gog sheets') || lower.includes(' gog ')) {
+    add('GOG CLI (Google Drive/Sheets)', 'cli', 'gog');
+  }
+  if (lower.includes('googleapis.com') || lower.includes('docs.google.com') || lower.includes('sheets.google.com')) {
+    add('Google Workspace APIs', 'api', 'googleapis.com');
+  }
+  if (/\bjq\b/.test(lower)) {
+    add('jq CLI', 'cli', 'jq');
+  }
+  if (lower.includes('html2pdf') || lower.includes('merge-pdfs.mjs')) {
+    add('HTML to PDF Tooling', 'cli', 'html2pdf/merge-pdfs');
+  }
+
+  const credRegex = /memory\/[a-z0-9_\-\/]+\.md/gi;
+  const credMatches = content.match(credRegex) || [];
+  credMatches.forEach((match) => add(`Credential file: ${match}`, 'file', match));
+
+  return Array.from(hits.values());
+}
+
+function appendRequiredIntegrations(analysis: any, content: string) {
+  if (!analysis) return analysis;
+  const requiredIntegrations = detectRequiredIntegrations(content);
+  return { ...analysis, requiredIntegrations };
 }
 
 function extractSection(content: string, heading: string): string | null {
