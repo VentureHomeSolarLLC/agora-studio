@@ -1,0 +1,36 @@
+name: Deploy Internal (VM)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-internal
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to internal VM
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.INTERNAL_VM_HOST }}
+          username: ${{ secrets.INTERNAL_VM_USER }}
+          key: ${{ secrets.INTERNAL_VM_SSH_KEY }}
+          script_stop: true
+          command_timeout: 20m
+          script: |
+            set -e
+            echo "🚀 Deploying internal KB..."
+            cd /opt/help-venturehome/site
+            git fetch origin main
+            git reset --hard origin/main
+            npm ci
+            npm run build
+            pm2 restart agora-studio-vm --update-env || pm2 start npm --name "agora-studio-vm" -- start
+            pm2 save
+            pm2 status
+            echo "✅ Internal deployment complete at $(date)"
