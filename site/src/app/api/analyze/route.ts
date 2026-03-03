@@ -747,6 +747,62 @@ function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
   }
 }
 
+function extractSection(content: string, heading: string): string | null {
+  if (!content) return null;
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`^##\\s+${escaped}\\s*$`, 'm');
+  const match = regex.exec(content);
+  if (!match) return null;
+  const start = match.index + match[0].length;
+  const rest = content.slice(start);
+  const next = rest.search(/^##\s+/m);
+  const section = next >= 0 ? rest.slice(0, next) : rest;
+  const trimmed = section.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractReferenceSections(content: string, title: string) {
+  const fallbackEngram = slugify(title || 'engram');
+  const concepts: any[] = [];
+  const lessons: any[] = [];
+  const conceptMap: Array<{ heading: string; title: string; note?: string }> = [
+    { heading: 'API Reference', title: 'API Reference' },
+    { heading: 'Salesforce Object Reference', title: 'Salesforce Object Reference' },
+    { heading: 'Google Sheets Reference', title: 'Google Sheets Reference' },
+    { heading: 'Attachment Decisions Log', title: 'Attachment Decisions Log' },
+    { heading: 'Rejection Next Steps Reference', title: 'Rejection Next Steps' },
+  ];
+
+  conceptMap.forEach((entry) => {
+    const section = extractSection(content, entry.heading);
+    if (!section) return;
+    const note = entry.note ? `${entry.note}\n\n` : '';
+    concepts.push({
+      title: entry.title,
+      content: `${note}${section}`,
+      forEngram: fallbackEngram,
+      confidence: 0.8,
+      riskLevel: 'low',
+    });
+  });
+
+  return { concepts, lessons };
+}
+
+function mergeSuggestedItems(existing: any[] = [], extras: any[] = []) {
+  const map = new Map<string, any>();
+  const toKey = (item: any) =>
+    `${slugify(item?.title || 'item')}-${slugify(item?.forEngram || 'general')}`;
+  existing.forEach((item) => map.set(toKey(item), item));
+  extras.forEach((item) => {
+    const key = toKey(item);
+    if (!map.has(key)) {
+      map.set(key, item);
+    }
+  });
+  return Array.from(map.values());
+}
+
 function appendProcessDependencyWarnings(analysis: any, content: string) {
   const warnings = findHumanDependencyWarnings(content);
   if (!warnings.length) return analysis;
@@ -1115,6 +1171,20 @@ Guidelines:
     warnings: ['AI response parsing failed.'],
   });
 
+  const referenceExtracts = extractReferenceSections(content, title);
+  const mergedTraining = {
+    ...(parsed.agentTrainingPotential || {}),
+    suggestedConcepts: mergeSuggestedItems(
+      parsed.agentTrainingPotential?.suggestedConcepts || [],
+      referenceExtracts.concepts
+    ),
+    suggestedLessons: mergeSuggestedItems(
+      parsed.agentTrainingPotential?.suggestedLessons || [],
+      referenceExtracts.lessons
+    ),
+    engramModes: parsed.agentTrainingPotential?.engramModes || [],
+  };
+
   const prefill = mergePrefill(
     buildPrefillFromSkillDraft(parsed?.skillDraft),
     extractAgentPrefillFromSkill(content)
@@ -1124,6 +1194,7 @@ Guidelines:
 
   return {
     ...parsed,
+    agentTrainingPotential: mergedTraining,
     prefill,
     infrastructureFeedback,
     frontmatterOverlap,
