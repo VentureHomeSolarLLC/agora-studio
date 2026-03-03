@@ -324,12 +324,13 @@ export default function NewEngramPage() {
           skillType: isKnowledgeMode ? 'knowledge' : (formData.agentProfile?.skillType || skill.type || 'procedural'),
           domain: formData.agentProfile?.domain || skill.domain || '',
           subdomains: formData.agentProfile?.subdomains?.length ? formData.agentProfile.subdomains : (skill.subdomains || []),
-          triggerQuestions: formData.agentProfile?.triggerQuestions?.length
-            ? formData.agentProfile.triggerQuestions
-            : (skill.triggerQuestions || []),
           outcome: formData.agentProfile?.outcome || skill.outcome || '',
           riskLevel: formData.agentProfile?.riskLevel || skill.riskLevel || 'medium',
-          triggers: formData.agentProfile?.triggers?.length ? formData.agentProfile.triggers : (skill.triggers || []),
+          triggers: formData.agentProfile?.triggers?.length
+            ? formData.agentProfile.triggers
+            : (skill.triggers && skill.triggers.length > 0
+              ? skill.triggers
+              : (skill.triggerQuestions || [])),
           requiredInputs: formData.agentProfile?.requiredInputs?.length ? formData.agentProfile.requiredInputs : (skill.requiredInputs || []),
           constraints: formData.agentProfile?.constraints?.length ? formData.agentProfile.constraints : (skill.constraints || []),
           allowedSystems: formData.agentProfile?.allowedSystems?.length ? formData.agentProfile.allowedSystems : (skill.allowedSystems || []),

@@ -65,7 +65,6 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       skill_type: data.agentProfile?.skillType || (data.agentProfile?.skillMode === 'knowledge' ? 'knowledge' : 'procedural'),
       domain: data.agentProfile?.domain || '',
       subdomains: data.agentProfile?.subdomains || [],
-      trigger_questions: data.agentProfile?.triggerQuestions || [],
       outcome: data.agentProfile?.outcome || '',
       risk_level: data.agentProfile?.riskLevel || 'medium',
       triggers: data.agentProfile?.triggers || [],
@@ -649,6 +648,9 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 </div>
               </div>
             )}
+            <p className="text-xs text-gray-500 mb-2">
+              Frontmatter powers routing, search, and safer agent execution.
+            </p>
             {infrastructure?.missingFrontmatter?.length > 0 && (
               <div className="text-xs text-gray-700 mb-2">
                 <p className="font-semibold text-gray-800">Missing YAML pieces:</p>

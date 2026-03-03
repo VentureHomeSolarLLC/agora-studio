@@ -809,7 +809,7 @@ Return JSON with:
     type: consultation | diagnostic | procedural | creative | knowledge,
     domain,
     subdomains: string[],
-    triggerQuestions: string[],
+    // Note: triggerQuestions removed in favor of triggers for simplicity
     outcome,
     riskLevel: low | medium | high,
     triggers: string[],
@@ -831,7 +831,7 @@ Guidelines:
 - Decision steps should include clear criteria.
 - Capture edge cases as lessons.
 - Be concise but complete.
-- Suggest domain/subdomains and 3-5 trigger questions for routing.`
+- Suggest domain/subdomains and 3-5 triggers (include cron/job or workflow triggers if relevant).`
       },
       {
         role: 'user',
@@ -883,7 +883,6 @@ Return JSON with:
     type: consultation | diagnostic | procedural | creative | knowledge,
     domain,
     subdomains: string[],
-    triggerQuestions: string[],
     outcome,
     riskLevel: low | medium | high,
     triggers: string[],
@@ -908,7 +907,8 @@ Guidelines:
 - Concepts = reusable conditions, definitions, constraints, or requirements.
 - Lessons = edge cases or unexpected outcomes with a clear scenario + solution.
 - Confidence is 0-1. Set riskLevel to low/medium/high based on potential harm.
-- If information is purely reference knowledge, mark the Engram mode as knowledge.`
+- If information is purely reference knowledge, mark the Engram mode as knowledge.
+- Infer domain/subdomains and triggers even if the source does not include them.`
       },
       {
         role: 'user',
@@ -957,7 +957,6 @@ type SkillDraft = {
   type?: string;
   domain?: string;
   subdomains?: string[];
-  triggerQuestions?: string[];
   outcome?: string;
   riskLevel?: string;
   triggers?: string[];
@@ -1002,10 +1001,11 @@ function extractAgentPrefillFromSkill(content: string): AgentPrefill {
       skillType,
       domain: data.domain || undefined,
       subdomains: asStringList(data.subdomains),
-      triggerQuestions: asStringList(data.trigger_questions || data.triggerQuestions),
+      triggers: asStringList(data.triggers).length > 0
+        ? asStringList(data.triggers)
+        : asStringList(data.trigger_questions || data.triggerQuestions),
       outcome: data.outcome || undefined,
       riskLevel: data.risk_level || data.riskLevel || undefined,
-      triggers: asStringList(data.triggers),
       requiredInputs: asStringList(data.required_inputs || data.requiredInputs),
       constraints: asStringList(data.constraints),
       allowedSystems: asStringList(data.allowed_systems || data.allowedSystems),
@@ -1039,7 +1039,6 @@ function buildPrefillFromSkillDraft(skillDraft?: SkillDraft | null): AgentPrefil
     skillType: skillDraft.type || undefined,
     domain: skillDraft.domain || undefined,
     subdomains: asStringList(skillDraft.subdomains),
-    triggerQuestions: asStringList(skillDraft.triggerQuestions),
     outcome: skillDraft.outcome || undefined,
     riskLevel: skillDraft.riskLevel || undefined,
     triggers: asStringList(skillDraft.triggers),
@@ -1127,13 +1126,11 @@ function buildInfrastructureFeedback(content: string, skillDraft?: SkillDraft | 
     stopConditions: skillDraft?.stopConditions || profile.stopConditions,
     riskLevel: skillDraft?.riskLevel || profile.riskLevel,
     subdomains: skillDraft?.subdomains || profile.subdomains,
-    triggerQuestions: skillDraft?.triggerQuestions || profile.triggerQuestions,
   };
 
   const missingFields: string[] = [];
   if (isEmptyValue(effective.domain)) missingFields.push('Domain');
   if (isEmptyValue(effective.subdomains)) missingFields.push('Subdomains');
-  if (isEmptyValue(effective.triggerQuestions)) missingFields.push('Trigger questions');
   if (isEmptyValue(effective.outcome)) missingFields.push('Outcome');
   if (isEmptyValue(effective.triggers)) missingFields.push('Triggers');
   if (isEmptyValue(effective.requiredInputs)) missingFields.push('Required inputs');
