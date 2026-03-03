@@ -37,10 +37,6 @@ export function transformToEngram(formData: EngramFormData) {
     const appendConcepts = mergeConcepts.filter((c) => c.mergeStrategy !== 'replace');
     const replaceLessons = mergeLessons.filter((l) => l.mergeStrategy === 'replace');
     const appendLessons = mergeLessons.filter((l) => l.mergeStrategy !== 'replace');
-    const replaceConcepts = mergeConcepts.filter((c) => c.mergeStrategy === 'replace');
-    const appendConcepts = mergeConcepts.filter((c) => c.mergeStrategy !== 'replace');
-    const replaceLessons = mergeLessons.filter((l) => l.mergeStrategy === 'replace');
-    const appendLessons = mergeLessons.filter((l) => l.mergeStrategy !== 'replace');
 
     const grouped = groupAgentExtracts(extractedConcepts, extractedLessons, engramId);
     const repoRoot = getRepoRoot();
@@ -170,6 +166,10 @@ export function transformToEngram(formData: EngramFormData) {
     const extractedLessons = formData.agentExtraction?.lessons?.filter((l) => l.include) || [];
     const mergeConcepts = formData.agentExtraction?.concepts?.filter((c) => c.mergeTargetPath) || [];
     const mergeLessons = formData.agentExtraction?.lessons?.filter((l) => l.mergeTargetPath) || [];
+    const replaceConcepts = mergeConcepts.filter((c) => c.mergeStrategy === 'replace');
+    const appendConcepts = mergeConcepts.filter((c) => c.mergeStrategy !== 'replace');
+    const replaceLessons = mergeLessons.filter((l) => l.mergeStrategy === 'replace');
+    const appendLessons = mergeLessons.filter((l) => l.mergeStrategy !== 'replace');
 
     const grouped = groupAgentExtracts(extractedConcepts, extractedLessons, engramId);
     const repoRoot = getRepoRoot();
