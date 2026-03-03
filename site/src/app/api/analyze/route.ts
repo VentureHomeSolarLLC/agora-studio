@@ -72,10 +72,31 @@ function enrichAgentTrainingPotential(analysis: any) {
   if (!analysis?.agentTrainingPotential) return analysis;
   const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
   if (Array.isArray(analysis.agentTrainingPotential.suggestedConcepts)) {
-    analysis.agentTrainingPotential.suggestedConcepts = analysis.agentTrainingPotential.suggestedConcepts.map((concept: any) => ({
-      ...concept,
-      duplicate: findDuplicatesForText(concept.title || 'Untitled concept', concept.content || '', agentTypes),
-    }));
+    analysis.agentTrainingPotential.suggestedConcepts = analysis.agentTrainingPotential.suggestedConcepts.map((concept: any) => {
+      const duplicate = findDuplicatesForText(concept.title || 'Untitled concept', concept.content || '', agentTypes);
+      const topMatch = duplicate.matches?.[0];
+      let conflict;
+      if (topMatch?.path) {
+        const existing = readDocumentContent(topMatch.path);
+        if (existing) {
+          const details = detectNumericConflicts(concept.content || '', existing.content || '');
+          const existingLastVerified =
+            existing.data?.last_verified || existing.data?.updated || existing.data?.lastVerified || undefined;
+          conflict = {
+            hasConflict: details.length > 0,
+            details,
+            existingLastVerified,
+            existingStale: existingLastVerified ? isStaleDate(existingLastVerified, 180) : false,
+            existingPath: topMatch.path,
+          };
+        }
+      }
+      return {
+        ...concept,
+        duplicate,
+        conflict,
+      };
+    });
   }
   if (Array.isArray(analysis.agentTrainingPotential.suggestedLessons)) {
     analysis.agentTrainingPotential.suggestedLessons = analysis.agentTrainingPotential.suggestedLessons.map((lesson: any) => ({
@@ -88,6 +109,63 @@ function enrichAgentTrainingPotential(analysis: any) {
     }));
   }
   return analysis;
+}
+
+type NumericFact = { value: number; unit: string; context: string };
+
+function extractNumericFacts(text: string): NumericFact[] {
+  const facts: NumericFact[] = [];
+  const normalized = text.replace(/,/g, '');
+  const regex = /(\d{1,4}(?:\.\d+)?)\s*(kwh|kw|w|mw|kva|kv|volts?|v|amps?|amp|a|%)\s*(ac|dc)?/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(normalized))) {
+    const value = Number(match[1]);
+    if (Number.isNaN(value)) continue;
+    const unit = `${match[2] || ''}${match[3] ? ` ${match[3]}` : ''}`.trim().toLowerCase();
+    const start = Math.max(match.index - 40, 0);
+    const end = Math.min(match.index + match[0].length + 40, normalized.length);
+    const context = normalized.slice(start, end).toLowerCase();
+    facts.push({ value, unit, context });
+  }
+  return facts;
+}
+
+function detectNumericConflicts(newText: string, existingText: string): string[] {
+  const newFacts = extractNumericFacts(newText);
+  const existingFacts = extractNumericFacts(existingText);
+  if (newFacts.length === 0 || existingFacts.length === 0) return [];
+  const keywordRegex = /(cap|limit|max|maximum|min|minimum|allowed|allowable|size|capacity|threshold)/i;
+  const details: string[] = [];
+  newFacts.forEach((fresh) => {
+    existingFacts.forEach((oldFact) => {
+      if (fresh.unit !== oldFact.unit) return;
+      if (Math.abs(fresh.value - oldFact.value) < 0.01) return;
+      if (!keywordRegex.test(fresh.context) && !keywordRegex.test(oldFact.context)) return;
+      details.push(`Existing ${oldFact.value} ${oldFact.unit} vs new ${fresh.value} ${fresh.unit}`);
+    });
+  });
+  return Array.from(new Set(details));
+}
+
+function readDocumentContent(relativePath: string): { data: any; content: string } | null {
+  try {
+    const repoRoot = getRepoRoot();
+    const fullPath = path.join(repoRoot, relativePath);
+    if (!fs.existsSync(fullPath)) return null;
+    const raw = fs.readFileSync(fullPath, 'utf-8');
+    const parsed = matter(raw);
+    return { data: parsed.data || {}, content: parsed.content || '' };
+  } catch (error) {
+    console.warn('Failed to read document for conflict detection:', error);
+    return null;
+  }
+}
+
+function isStaleDate(value: string, days: number) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const diff = Date.now() - date.getTime();
+  return diff > days * 24 * 60 * 60 * 1000;
 }
 
 type SourceInfo = { id: string; type: 'customer' | 'internal' | 'agent'; hash: string };

@@ -238,6 +238,7 @@ export default function NewEngramPage() {
               mergeTargetPath: undefined,
               mergeTargetTitle: undefined,
               mergeTargetType: undefined,
+              conflict: concept.conflict,
               duplicate: concept.duplicate,
             })),
             lessons: suggestedLessons.map((lesson: any) => ({
@@ -322,6 +323,7 @@ export default function NewEngramPage() {
               mergeTargetPath: undefined,
               mergeTargetTitle: undefined,
               mergeTargetType: undefined,
+              conflict: concept.conflict,
               duplicate: concept.duplicate,
             })),
             lessons: suggestedLessons.map((lesson: any) => ({
@@ -369,6 +371,7 @@ export default function NewEngramPage() {
               mergeTargetPath: undefined,
               mergeTargetTitle: undefined,
               mergeTargetType: undefined,
+              conflict: concept.conflict,
               duplicate: concept.duplicate,
             })),
             lessons: suggestedLessons.map((lesson: any) => ({

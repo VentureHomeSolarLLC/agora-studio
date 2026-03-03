@@ -31,6 +31,13 @@ export interface AgentExtractionConcept {
   mergeTargetPath?: string;
   mergeTargetTitle?: string;
   mergeTargetType?: string;
+  conflict?: {
+    hasConflict: boolean;
+    details?: string[];
+    existingLastVerified?: string;
+    existingStale?: boolean;
+    existingPath?: string;
+  };
   duplicate?: {
     similar: boolean;
     topScore: number;
