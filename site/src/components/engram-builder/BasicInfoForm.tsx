@@ -31,7 +31,11 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
   };
   const shouldShow = (value: any, defaultValue?: any) => !isMonolithImport || showImported || isMissing(value, defaultValue);
 
-  const asList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
+  const asList = (value: string) =>
+    value
+      .split(/[,;\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
   const asText = (values?: string[]) => values?.join(', ') || '';
   const asLines = (values?: string[]) => values?.join('\n') || '';
   const linesToList = (value: string) => value.split('\n').map((item) => item.trim()).filter(Boolean);
@@ -191,15 +195,15 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
                 )}
                 {shouldShow(agentProfile?.subdomains) && (
                   <div>
-                    <label className="block text-sm font-medium mb-2">Subdomains</label>
-                    <input
-                      type="text"
-                      value={asText(agentProfile?.subdomains)}
-                      onChange={(e) => updateAgentProfile({ subdomains: asList(e.target.value) })}
-                      placeholder="e.g., energy_savings, efficiency"
-                      className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Comma-separated.</p>
+                <label className="block text-sm font-medium mb-2">Subdomains</label>
+                <input
+                  type="text"
+                  value={asText(agentProfile?.subdomains)}
+                  onChange={(e) => updateAgentProfile({ subdomains: asList(e.target.value) })}
+                  placeholder="e.g., energy_savings, efficiency"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                />
+                <p className="text-xs text-gray-400 mt-1">Comma or new-line separated.</p>
                   </div>
                 )}
               </div>

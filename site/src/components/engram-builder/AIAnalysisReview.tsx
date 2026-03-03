@@ -47,6 +47,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const AUTO_INCLUDE_CONFIDENCE = 0.7;
   const today = new Date().toISOString().split('T')[0];
   const infrastructure = analysis?.infrastructureFeedback;
+  const frontmatterOverlap = analysis?.frontmatterOverlap;
 
   const slugify = (value: string) =>
     value
@@ -674,6 +675,35 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
               </div>
             )}
           </div>
+
+          {frontmatterOverlap?.matches?.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">Searchability & Crossover</h3>
+                <span className={`text-xs font-medium ${frontmatterOverlap.similar ? 'text-amber-700' : 'text-emerald-700'}`}>
+                  {frontmatterOverlap.similar ? 'High overlap risk' : 'Low overlap risk'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mb-2">
+                These Engrams share similar frontmatter. If the task is distinct, refine triggers or outcome to avoid collisions.
+              </p>
+              <div className="space-y-2">
+                {frontmatterOverlap.matches.map((match: any, idx: number) => (
+                  <div key={`fm-match-${idx}`} className="flex items-center justify-between text-xs">
+                    <a
+                      href={resolveViewUrl(match.viewUrl) || repoLinkForPath(match.path)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-700 hover:underline"
+                    >
+                      {match.title}
+                    </a>
+                    <span className="text-gray-500">{Math.round(match.score * 100)}% similar</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {tokenMetrics && (
             <div className="bg-white border border-gray-200 rounded-lg p-4">

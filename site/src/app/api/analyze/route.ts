@@ -68,6 +68,14 @@ type IndexedDoc = {
   norm: number;
 };
 
+type FrontmatterDoc = {
+  title: string;
+  path: string;
+  viewUrl?: string;
+  tokens: Map<string, number>;
+  norm: number;
+};
+
 function enrichAgentTrainingPotential(analysis: any) {
   if (!analysis?.agentTrainingPotential) return analysis;
   const agentTypes = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
@@ -234,6 +242,8 @@ const STOP_WORDS = new Set([
 
 let cachedIndex: IndexedDoc[] | null = null;
 let cachedAt = 0;
+let cachedFrontmatter: FrontmatterDoc[] | null = null;
+let cachedFrontmatterAt = 0;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 function tokenize(text: string): string[] {
@@ -257,6 +267,19 @@ function buildVector(tokens: string[]): { tokens: Map<string, number>; norm: num
 }
 
 function cosineSimilarity(a: { tokens: Map<string, number>; norm: number }, b: IndexedDoc): number {
+  if (a.norm === 0 || b.norm === 0) return 0;
+  let dot = 0;
+  for (const [token, count] of a.tokens) {
+    const other = b.tokens.get(token);
+    if (other) dot += count * other;
+  }
+  return dot / (a.norm * b.norm);
+}
+
+function cosineSimilarityFrontmatter(
+  a: { tokens: Map<string, number>; norm: number },
+  b: FrontmatterDoc
+): number {
   if (a.norm === 0 || b.norm === 0) return 0;
   let dot = 0;
   for (const [token, count] of a.tokens) {
@@ -550,6 +573,90 @@ function loadDocuments(): IndexedDoc[] {
   cachedIndex = docs;
   cachedAt = now;
   return docs;
+}
+
+function buildFrontmatterTextFromData(data: any, fallbackTitle: string) {
+  const parts = [
+    data?.name || data?.title || fallbackTitle || '',
+    data?.domain || '',
+    ...(Array.isArray(data?.subdomains) ? data.subdomains : []),
+    ...(Array.isArray(data?.triggers) ? data.triggers : []),
+    data?.outcome || '',
+    data?.risk_level || data?.riskLevel || '',
+    ...(Array.isArray(data?.allowed_systems) ? data.allowed_systems : []),
+    ...(Array.isArray(data?.constraints) ? data.constraints : []),
+  ];
+  return parts.filter(Boolean).join('\n');
+}
+
+function loadSkillFrontmatterIndex(): FrontmatterDoc[] {
+  const now = Date.now();
+  if (cachedFrontmatter && now - cachedFrontmatterAt < CACHE_TTL_MS) {
+    return cachedFrontmatter;
+  }
+
+  const docs: FrontmatterDoc[] = [];
+  const repoRoot = getRepoRoot();
+  const engramsV2Dir = path.join(repoRoot, 'engrams-v2');
+  if (fs.existsSync(engramsV2Dir)) {
+    const entries = fs.readdirSync(engramsV2Dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const skillPath = path.join(engramsV2Dir, entry.name, 'SKILL.md');
+      if (!fs.existsSync(skillPath)) continue;
+      const parsed = matter(fs.readFileSync(skillPath, 'utf-8'));
+      const title = parsed.data?.name || parsed.data?.title || entry.name;
+      const text = buildFrontmatterTextFromData(parsed.data || {}, title);
+      const vector = buildVector(tokenize(text));
+      docs.push({
+        title,
+        path: `engrams-v2/${entry.name}/SKILL.md`,
+        viewUrl: `https://github.com/VentureHomeSolarLLC/agora-studio/tree/main/engrams-v2/${entry.name}`,
+        tokens: vector.tokens,
+        norm: vector.norm,
+      });
+    }
+  }
+
+  cachedFrontmatter = docs;
+  cachedFrontmatterAt = now;
+  return docs;
+}
+
+function buildFrontmatterTextFromPrefill(prefill?: AgentPrefill) {
+  const profile = prefill?.agentProfile || {};
+  const skill = prefill?.skill || {};
+  const parts = [
+    prefill?.title || '',
+    profile.domain || '',
+    ...(Array.isArray(profile.subdomains) ? profile.subdomains : []),
+    ...(Array.isArray(profile.triggers) ? profile.triggers : []),
+    profile.outcome || '',
+    profile.riskLevel || '',
+    ...(Array.isArray(profile.allowedSystems) ? profile.allowedSystems : []),
+    ...(Array.isArray(profile.constraints) ? profile.constraints : []),
+    ...(Array.isArray(skill.prerequisites) ? skill.prerequisites : []),
+  ];
+  return parts.filter(Boolean).join('\n');
+}
+
+function findFrontmatterOverlap(prefill?: AgentPrefill) {
+  const text = buildFrontmatterTextFromPrefill(prefill);
+  const inputVector = buildVector(tokenize(text));
+  const docs = loadSkillFrontmatterIndex();
+  const scored = docs
+    .map((doc) => ({
+      title: doc.title,
+      path: doc.path,
+      viewUrl: doc.viewUrl,
+      score: cosineSimilarityFrontmatter(inputVector, doc),
+    }))
+    .filter((match) => match.score > 0.08)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+  const topScore = scored[0]?.score || 0;
+  const similar = topScore >= 0.35;
+  return { similar, topScore, matches: scored };
 }
 
 function getAllowedTypes(contentType: string): Set<IndexedDoc['type']> {
@@ -937,11 +1044,13 @@ Guidelines:
     extractAgentPrefillFromSkill(content)
   );
   const infrastructureFeedback = buildInfrastructureFeedback(content, parsed?.skillDraft, prefill);
+  const frontmatterOverlap = findFrontmatterOverlap(prefill);
 
   return {
     ...parsed,
     prefill,
     infrastructureFeedback,
+    frontmatterOverlap,
   };
 }
 
