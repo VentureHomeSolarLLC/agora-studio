@@ -48,6 +48,21 @@ jobs:
             NEXTAUTH_URL=https://staging.help.venturehome.com
             ALLOWED_DOMAIN=venturehome.com
             OPENAI_API_KEY=${{ secrets.OPEN_API_KEY }}
+            ENGRAM_TEST_REPO_PATH=${{ secrets.ENGRAM_TEST_REPO_PATH }}
+            OPENCLAW_TOKEN=${{ secrets.OPENCLAW_TOKEN }}
+            OPENCLAW_ENDPOINT=${{ secrets.OPENCLAW_ENDPOINT }}
+            OPENCLAW_RUN_PATH=${{ secrets.OPENCLAW_RUN_PATH }}
+            GRAPH_TENANT_ID=${{ secrets.GRAPH_TENANT_ID }}
+            GRAPH_CLIENT_ID=${{ secrets.GRAPH_CLIENT_ID }}
+            GRAPH_CLIENT_SECRET=${{ secrets.GRAPH_CLIENT_SECRET }}
+            GRAPH_SCOPE=${{ secrets.GRAPH_SCOPE }}
+            GRAPH_MAILBOX=${{ secrets.GRAPH_MAILBOX }}
+            SALESFORCE_CLIENT_ID=${{ secrets.SALESFORCE_CLIENT_ID }}
+            SALESFORCE_CLIENT_SECRET=${{ secrets.SALESFORCE_CLIENT_SECRET }}
+            SALESFORCE_OAUTH_URL=${{ secrets.SALESFORCE_OAUTH_URL }}
+            SALESFORCE_API_VERSION=${{ secrets.SALESFORCE_API_VERSION }}
+            GOG_ACCOUNT=${{ secrets.GOG_ACCOUNT }}
+            GOOGLE_TEST_SHEET_ID=${{ secrets.GOOGLE_TEST_SHEET_ID }}
             EOF
             
             echo "🔨 Building..."
