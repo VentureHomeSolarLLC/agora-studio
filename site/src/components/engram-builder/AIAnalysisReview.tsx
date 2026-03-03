@@ -143,6 +143,36 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     };
   }, [isAgentImport, skillPreview, frontmatterText, data.agentExtraction]);
 
+  const domainComparison = useMemo(() => {
+    if (!isAgentImport || !infrastructure) return null;
+    const suggestedDomain = (infrastructure.suggestedDomain || '').trim();
+    const suggestedSubdomains = Array.isArray(infrastructure.suggestedSubdomains)
+      ? infrastructure.suggestedSubdomains
+      : [];
+    const currentDomain = (data.agentProfile?.domain || '').trim();
+    const currentSubdomains = Array.isArray(data.agentProfile?.subdomains)
+      ? data.agentProfile?.subdomains || []
+      : [];
+    const normalize = (value: string) => value.toLowerCase().trim();
+    const suggestedSet = new Set(suggestedSubdomains.map(normalize));
+    const currentSet = new Set(currentSubdomains.map(normalize));
+    const missingFromCurrent = suggestedSubdomains.filter((item: string) => !currentSet.has(normalize(item)));
+    const extraInCurrent = currentSubdomains.filter((item: string) => !suggestedSet.has(normalize(item)));
+    const domainMatches =
+      suggestedDomain && currentDomain
+        ? normalize(suggestedDomain) === normalize(currentDomain)
+        : false;
+    return {
+      suggestedDomain,
+      suggestedSubdomains,
+      currentDomain,
+      currentSubdomains,
+      missingFromCurrent,
+      extraInCurrent,
+      domainMatches,
+    };
+  }, [isAgentImport, infrastructure, data.agentProfile?.domain, data.agentProfile?.subdomains]);
+
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
       const normalized =
@@ -647,6 +677,34 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 )}
                 {(infrastructure?.suggestedSubdomains || []).length > 0 && (
                   <p>Subdomains: <span className="font-medium text-gray-900">{infrastructure.suggestedSubdomains.join(', ')}</span></p>
+                )}
+              </div>
+            )}
+            {domainComparison && (
+              <div className="text-xs text-gray-700 mb-3">
+                <p className="font-semibold text-gray-800">Current vs suggested</p>
+                {domainComparison.suggestedDomain && (
+                  <p>
+                    Domain: <span className="font-medium text-gray-900">{domainComparison.currentDomain || '—'}</span>
+                    {domainComparison.currentDomain && (
+                      <span className={`ml-2 ${domainComparison.domainMatches ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {domainComparison.domainMatches ? 'Matches' : 'Differs'}
+                      </span>
+                    )}
+                  </p>
+                )}
+                {domainComparison.missingFromCurrent.length > 0 && (
+                  <p>
+                    Add subdomains: <span className="font-medium text-gray-900">{domainComparison.missingFromCurrent.join(', ')}</span>
+                  </p>
+                )}
+                {domainComparison.extraInCurrent.length > 0 && (
+                  <p>
+                    Review current subdomains: <span className="font-medium text-gray-900">{domainComparison.extraInCurrent.join(', ')}</span>
+                  </p>
+                )}
+                {!domainComparison.missingFromCurrent.length && !domainComparison.extraInCurrent.length && (
+                  <p className="text-emerald-700">Subdomains align with suggestions.</p>
                 )}
               </div>
             )}

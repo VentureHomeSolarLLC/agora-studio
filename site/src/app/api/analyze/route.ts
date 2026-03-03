@@ -1305,7 +1305,7 @@ function buildInfrastructureFeedback(content: string, skillDraft?: SkillDraft | 
     strengthScore: score,
     strengthLabel: label,
     suggestedDomain: skillDraft?.domain || profile.domain || '',
-    suggestedSubdomains: skillDraft?.subdomains || profile.subdomains || [],
+    suggestedSubdomains: asStringList(skillDraft?.subdomains || profile.subdomains || []),
     missingFrontmatter,
     missingFields,
     missingSteps,

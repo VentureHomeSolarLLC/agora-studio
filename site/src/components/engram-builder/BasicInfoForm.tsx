@@ -196,15 +196,15 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
                 {shouldShow(agentProfile?.subdomains) && (
                   <div>
                 <label className="block text-sm font-medium mb-2">Subdomains</label>
-                <input
-                  type="text"
-                  value={asText(agentProfile?.subdomains)}
+                <textarea
+                  value={asLines(agentProfile?.subdomains)}
                   onChange={(e) => updateAgentProfile({ subdomains: asList(e.target.value) })}
-                  placeholder="e.g., energy_savings, efficiency"
+                  placeholder="energy_savings\ninterconnection"
+                  rows={2}
                   className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
                 />
-                <p className="text-xs text-gray-400 mt-1">Comma or new-line separated.</p>
-                  </div>
+                <p className="text-xs text-gray-400 mt-1">One per line or comma-separated.</p>
+              </div>
                 )}
               </div>
             </div>
