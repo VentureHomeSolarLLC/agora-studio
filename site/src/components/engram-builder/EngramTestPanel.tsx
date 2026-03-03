@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { EngramFormData } from '@/types/engram';
 
 interface EngramTestPanelProps {
@@ -13,6 +13,8 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
   const [agentResult, setAgentResult] = useState<any>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [healthLog, setHealthLog] = useState<string>('');
+  const [agentLog, setAgentLog] = useState<string>('');
   const requiredIntegrations = Array.isArray(data.aiAnalysis?.requiredIntegrations)
     ? data.aiAnalysis.requiredIntegrations
     : [];
@@ -20,6 +22,7 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
   const runHealthCheck = async () => {
     setIsRunningHealth(true);
     setHealthError(null);
+    setHealthLog('');
     try {
       const response = await fetch('/api/engrams/test', {
         method: 'POST',
@@ -42,6 +45,7 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
   const runAgentExecution = async () => {
     setIsRunningAgent(true);
     setAgentError(null);
+    setAgentLog('');
     try {
       const response = await fetch('/api/engrams/test-agent', {
         method: 'POST',
@@ -62,6 +66,46 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
   };
 
   const healthPassed = Boolean(healthResult && healthResult.summary?.failed === 0);
+
+  useEffect(() => {
+    if (!healthResult?.logPath || !isRunningHealth) return;
+    const interval = window.setInterval(async () => {
+      try {
+        const response = await fetch('/api/engrams/test-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ logPath: healthResult.logPath }),
+        });
+        if (response.ok) {
+          const payload = await response.json();
+          setHealthLog(payload.text || '');
+        }
+      } catch {
+        // ignore log polling errors
+      }
+    }, 1500);
+    return () => window.clearInterval(interval);
+  }, [healthResult?.logPath, isRunningHealth]);
+
+  useEffect(() => {
+    if (!agentResult?.logPath || !isRunningAgent) return;
+    const interval = window.setInterval(async () => {
+      try {
+        const response = await fetch('/api/engrams/test-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ logPath: agentResult.logPath }),
+        });
+        if (response.ok) {
+          const payload = await response.json();
+          setAgentLog(payload.text || '');
+        }
+      } catch {
+        // ignore log polling errors
+      }
+    }, 1500);
+    return () => window.clearInterval(interval);
+  }, [agentResult?.logPath, isRunningAgent]);
   return (
     <div className="space-y-6">
       <div>
@@ -154,6 +198,11 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
                 </div>
             ))}
           </div>
+          {healthLog && (
+            <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-auto">
+              {healthLog}
+            </pre>
+          )}
         </div>
       )}
 
@@ -168,6 +217,11 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
           <div className="text-sm text-gray-600">
             Test ID: {agentResult.testId}
           </div>
+          {agentLog && (
+            <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-auto">
+              {agentLog}
+            </pre>
+          )}
           <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-auto">
             {JSON.stringify(agentResult.result || {}, null, 2)}
           </pre>
