@@ -13,13 +13,16 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
   const importMode = data.agentImportMode || 'notes';
   const [isRecording, setIsRecording] = useState(false);
   const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const transcript = data.recordingTranscript || '';
   const canRecord =
@@ -51,6 +54,8 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
   const stopRecording = () => {
     recorderRef.current?.stop();
     recorderRef.current = null;
+    audioRecorderRef.current?.stop();
+    audioRecorderRef.current = null;
     stopStreams();
     setIsRecording(false);
     if (timerRef.current) {
@@ -63,6 +68,7 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
     setRecordingError(null);
     setRecordingSeconds(0);
     setRecordingBlob(null);
+    setAudioBlob(null);
     if (recordingUrl) {
       URL.revokeObjectURL(recordingUrl);
       setRecordingUrl(null);
@@ -81,6 +87,31 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
       ];
       const mimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        const audioMimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
+        const audioMimeType = audioMimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
+        if (audioMimeType) {
+          const audioStream = new MediaStream(audioTracks);
+          const audioRecorder = new MediaRecorder(audioStream, { mimeType: audioMimeType });
+          audioChunksRef.current = [];
+          audioRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              audioChunksRef.current.push(event.data);
+            }
+          };
+          audioRecorder.onstop = () => {
+            const blob = new Blob(audioChunksRef.current, { type: audioRecorder.mimeType || audioMimeType });
+            setAudioBlob(blob);
+            audioChunksRef.current = [];
+          };
+          audioRecorderRef.current = audioRecorder;
+        } else {
+          setRecordingError('Audio recording format is not supported in this browser.');
+        }
+      } else {
+        setRecordingError('No audio track detected. Enable system audio to transcribe.');
+      }
       chunksRef.current = [];
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -96,6 +127,7 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
       };
       recorderRef.current = recorder;
       recorder.start();
+      audioRecorderRef.current?.start();
       setIsRecording(true);
       const startedAt = Date.now();
       timerRef.current = window.setInterval(() => {
@@ -114,6 +146,7 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
 
   const clearRecording = () => {
     setRecordingBlob(null);
+    setAudioBlob(null);
     if (recordingUrl) {
       URL.revokeObjectURL(recordingUrl);
       setRecordingUrl(null);
@@ -121,16 +154,22 @@ export function ContentInputForm({ data, onChange, contentType }: ContentInputFo
   };
 
   const transcribeRecording = async () => {
-    if (!recordingBlob) return;
+    const sourceBlob = audioBlob || null;
+    if (!sourceBlob) {
+      setRecordingError('Audio track not available. Please re-record with system audio enabled.');
+      return;
+    }
     setRecordingError(null);
-    if (recordingBlob.size > 25 * 1024 * 1024) {
+    if (sourceBlob.size > 25 * 1024 * 1024) {
       setRecordingError('Recording is larger than 25MB. Please keep recordings under ~5 minutes.');
       return;
     }
     setIsTranscribing(true);
     try {
       const formData = new FormData();
-      const file = new File([recordingBlob], 'screen-recording.webm', { type: recordingBlob.type || 'video/webm' });
+      const mimeType = sourceBlob.type || 'audio/webm';
+      const extension = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'm4a' : 'webm';
+      const file = new File([sourceBlob], `screen-recording.${extension}`, { type: mimeType });
       formData.append('file', file);
       const response = await fetch('/api/transcribe', {
         method: 'POST',
