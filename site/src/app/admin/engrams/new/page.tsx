@@ -133,6 +133,7 @@ export default function NewEngramPage() {
     concepts: [],
     lessons: [],
     rawContent: '',
+    recordingTranscript: '',
     aiAnalysis: null,
     agentProfile: DEFAULT_AGENT_PROFILE,
     agentImportMode: 'notes',
@@ -229,11 +230,18 @@ export default function NewEngramPage() {
     setAnalysisError(null);
 
     try {
+      const transcript = (formData.recordingTranscript || '').trim();
+      const marker = 'Screen Recording Transcript:';
+      const rawContent = formData.rawContent || '';
+      const analysisContent =
+        transcript && !rawContent.includes(marker)
+          ? `${rawContent.trim()}\n\n${marker}\n${transcript}`.trim()
+          : rawContent;
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: formData.rawContent,
+          content: analysisContent,
           contentType: formData.contentType,
           title: formData.title,
           agentMode: formData.agentProfile?.skillMode,
