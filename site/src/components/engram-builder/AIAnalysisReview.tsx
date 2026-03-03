@@ -346,6 +346,11 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     return frontmatterFields.filter((field) => field.required && isEmpty(field.value));
   }, [frontmatterFields]);
 
+  const requiredFrontmatterFields = useMemo(
+    () => frontmatterFields.filter((field) => field.required),
+    [frontmatterFields]
+  );
+
   const suggestionsByKey = useMemo(() => {
     if (!isAgentWizard) return {};
     const suggestedProfile = analysis?.prefill?.agentProfile || {};
@@ -1044,12 +1049,14 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
             </div>
           )}
 
-          {missingFrontmatterFields.length > 0 && (
+          {isAgentWizard && requiredFrontmatterFields.length > 0 && (
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium text-gray-900">Complete Frontmatter</h3>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">Fill required fields below</span>
+                  <span className="text-xs text-gray-500">
+                    {missingFrontmatterFields.length > 0 ? 'Fill required fields below' : 'All required fields complete'}
+                  </span>
                   <button
                     type="button"
                     onClick={applySuggestedFrontmatter}
@@ -1061,7 +1068,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 </div>
               </div>
               <div className="space-y-3">
-                {missingFrontmatterFields.map((field) => (
+                {(missingFrontmatterFields.length > 0 ? missingFrontmatterFields : requiredFrontmatterFields).map((field) => (
                   <div key={field.key}>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">{field.label}</label>
                     {field.type === 'textarea' ? (

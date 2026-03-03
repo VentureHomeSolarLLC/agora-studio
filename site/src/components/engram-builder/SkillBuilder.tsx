@@ -70,6 +70,7 @@ export function SkillBuilder({ data, onChange }: SkillBuilderProps) {
           placeholder="e.g., Signed contract, System design"
           className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
         />
+        <p className="text-xs text-gray-400 mt-1">List anything that must be true before this skill runs (approvals, completed tasks, required docs, access).</p>
       </div>
 
       <div className="space-y-4">
