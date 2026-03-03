@@ -82,12 +82,17 @@ function enrichAgentTrainingPotential(analysis: any) {
           const details = detectNumericConflicts(concept.content || '', existing.content || '');
           const existingLastVerified =
             existing.data?.last_verified || existing.data?.updated || existing.data?.lastVerified || undefined;
+          const relatedReferences =
+            details.length > 0
+              ? findRelatedReferences(existing.data?.title || existing.data?.name || topMatch.title, existing.content || '', topMatch.path)
+              : [];
           conflict = {
             hasConflict: details.length > 0,
             details,
             existingLastVerified,
             existingStale: existingLastVerified ? isStaleDate(existingLastVerified, 180) : false,
             existingPath: topMatch.path,
+            relatedReferences,
           };
         }
       }
@@ -588,6 +593,22 @@ function findDuplicatesForText(
   return { similar, topScore, matches: scored };
 }
 
+function findRelatedReferences(title: string, content: string, excludePath?: string) {
+  const allowed = new Set<IndexedDoc['type']>(['concept', 'lesson', 'skill', 'engram', 'engram-v2']);
+  const { matches } = findDuplicatesForText(title, content, allowed, {
+    matchThreshold: 0.1,
+    similarThreshold: 0.2,
+  });
+  return matches
+    .filter((match) => match.path !== excludePath)
+    .map((match) => ({
+      title: match.title,
+      path: match.path,
+      viewUrl: match.viewUrl,
+    }))
+    .slice(0, 5);
+}
+
 async function checkForDuplicates(title: string, content: string, contentType: string) {
   const allowed = getAllowedTypes(contentType);
   const similarThreshold = contentType === 'customer' || contentType === 'internal' ? 0.5 : 0.25;
@@ -849,6 +870,7 @@ Guidelines:
 }
 
 async function analyzeAgentImport(content: string, title: string) {
+  const prefill = extractAgentPrefillFromSkill(content);
   const response = await openai.chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages: [
@@ -883,7 +905,7 @@ Guidelines:
   });
 
   const raw = response.choices[0].message.content;
-  return safeParseJson(raw, {
+  const parsed = safeParseJson(raw, {
     agentTrainingPotential: {
       suggestedConcepts: [],
       suggestedLessons: [],
@@ -892,4 +914,77 @@ Guidelines:
     suggestedTags: [],
     warnings: ['AI response parsing failed.'],
   });
+
+  return {
+    ...parsed,
+    prefill,
+  };
+}
+
+type AgentPrefill = {
+  title?: string;
+  description?: string;
+  agentProfile?: Record<string, any>;
+  skill?: Record<string, any>;
+};
+
+function asStringList(value: any): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n,;]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function extractAgentPrefillFromSkill(content: string): AgentPrefill {
+  try {
+    const parsed = matter(content || '');
+    const data = parsed.data || {};
+    const title = data.name || data.title || data.skill || data.engram || undefined;
+    const description = data.description || data.summary || undefined;
+    const skillMode =
+      data.mode === 'knowledge' || data.skill_mode === 'knowledge'
+        ? 'knowledge'
+        : data.mode === 'procedure' || data.skill_mode === 'procedure'
+        ? 'procedure'
+        : undefined;
+    const skillType = data.skill_type || data.type || undefined;
+
+    const agentProfile = {
+      skillMode,
+      skillType,
+      domain: data.domain || undefined,
+      subdomains: asStringList(data.subdomains),
+      triggerQuestions: asStringList(data.trigger_questions || data.triggerQuestions),
+      outcome: data.outcome || undefined,
+      riskLevel: data.risk_level || data.riskLevel || undefined,
+      triggers: asStringList(data.triggers),
+      requiredInputs: asStringList(data.required_inputs || data.requiredInputs),
+      constraints: asStringList(data.constraints),
+      allowedSystems: asStringList(data.allowed_systems || data.allowedSystems),
+      escalationCriteria: asStringList(data.escalation_criteria || data.escalationCriteria),
+      stopConditions: asStringList(data.stop_conditions || data.stopConditions),
+    };
+
+    const skill = {
+      difficulty: data.difficulty || undefined,
+      time_estimate: data.time_estimate || data.timeEstimate || undefined,
+      prerequisites: asStringList(data.prerequisites),
+    };
+
+    return {
+      title,
+      description,
+      agentProfile,
+      skill,
+    };
+  } catch (error) {
+    console.warn('Failed to parse skill frontmatter:', error);
+    return {};
+  }
 }

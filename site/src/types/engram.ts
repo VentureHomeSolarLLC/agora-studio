@@ -38,6 +38,11 @@ export interface AgentExtractionConcept {
     existingLastVerified?: string;
     existingStale?: boolean;
     existingPath?: string;
+    relatedReferences?: {
+      title: string;
+      path: string;
+      viewUrl?: string;
+    }[];
   };
   duplicate?: {
     similar: boolean;

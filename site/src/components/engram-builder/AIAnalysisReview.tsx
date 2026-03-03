@@ -673,6 +673,25 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       ) : (
                         <p className="text-xs text-red-800">This content conflicts with the existing file.</p>
                       )}
+                      {conflict.relatedReferences && conflict.relatedReferences.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-red-900">Also referenced in</p>
+                          <ul className="text-xs text-red-800 space-y-1 mt-1">
+                            {conflict.relatedReferences.map((ref, idx) => (
+                              <li key={`${concept.title}-ref-${idx}`}>
+                                <a
+                                  href={resolveViewUrl(ref.viewUrl) || repoLinkForPath(ref.path)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-red-800 hover:underline"
+                                >
+                                  {ref.title}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-2">
                         <button
                           type="button"

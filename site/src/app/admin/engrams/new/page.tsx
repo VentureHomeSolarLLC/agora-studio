@@ -12,6 +12,27 @@ import { ReviewAndPublish } from '@/components/engram-builder/ReviewAndPublish';
 
 const STEPS = ['Type', 'Info', 'Content', 'AI Analysis', 'Metadata', 'Publish'];
 const KNOWLEDGE_HUB_KEYWORDS = ['platform', 'system', 'product', 'overview', 'hub', 'foundation', 'core', 'general'];
+const DEFAULT_AGENT_PROFILE = {
+  skillMode: 'procedure' as const,
+  skillType: 'procedural' as const,
+  riskLevel: 'medium' as const,
+  triggers: [],
+  requiredInputs: [],
+  constraints: [],
+  allowedSystems: [],
+  escalationCriteria: [],
+  stopConditions: [],
+  outcome: '',
+  domain: '',
+  subdomains: [],
+  triggerQuestions: [],
+};
+const DEFAULT_SKILL = {
+  difficulty: 'intermediate' as const,
+  time_estimate: '15-20 minutes',
+  prerequisites: [],
+  steps: [],
+};
 
 const slugify = (value: string) =>
   value
@@ -108,31 +129,12 @@ export default function NewEngramPage() {
     tags: [],
     audience: ['customer'],
     related_engrams: [],
-    skill: {
-      difficulty: 'intermediate',
-      time_estimate: '15-20 minutes',
-      prerequisites: [],
-      steps: [],
-    },
+    skill: DEFAULT_SKILL,
     concepts: [],
     lessons: [],
     rawContent: '',
     aiAnalysis: null,
-    agentProfile: {
-      skillMode: 'procedure',
-      skillType: 'procedural',
-      riskLevel: 'medium',
-      triggers: [],
-      requiredInputs: [],
-      constraints: [],
-      allowedSystems: [],
-      escalationCriteria: [],
-      stopConditions: [],
-      outcome: '',
-      domain: '',
-      subdomains: [],
-      triggerQuestions: [],
-    },
+    agentProfile: DEFAULT_AGENT_PROFILE,
     agentImportMode: 'notes',
     agentEngramModes: [],
     agentExtraction: null,
@@ -150,6 +152,44 @@ export default function NewEngramPage() {
     if (item?.riskLevel === 'high') return false;
     if (typeof item?.confidence === 'number' && item.confidence < AUTO_INCLUDE_CONFIDENCE) return false;
     return true;
+  };
+
+  const isEmptyValue = (value: any) => {
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'string') return value.trim().length === 0;
+    return value === undefined || value === null;
+  };
+
+  const mergeAgentProfile = (current: any, prefill: any) => {
+    if (!prefill) return current;
+    const next = { ...current };
+    Object.keys(prefill).forEach((key) => {
+      const value = prefill[key];
+      const currentValue = next[key];
+      const defaultValue = (DEFAULT_AGENT_PROFILE as any)[key];
+      const shouldFill =
+        isEmptyValue(currentValue) || (typeof defaultValue !== 'undefined' && currentValue === defaultValue);
+      if (shouldFill && !isEmptyValue(value)) {
+        next[key] = value;
+      }
+    });
+    return next;
+  };
+
+  const mergeSkill = (current: any, prefill: any) => {
+    if (!prefill) return current;
+    const next = { ...current };
+    Object.keys(prefill).forEach((key) => {
+      const value = prefill[key];
+      const currentValue = next[key];
+      const defaultValue = (DEFAULT_SKILL as any)[key];
+      const shouldFill =
+        isEmptyValue(currentValue) || (typeof defaultValue !== 'undefined' && currentValue === defaultValue);
+      if (shouldFill && !isEmptyValue(value)) {
+        next[key] = value;
+      }
+    });
+    return next;
   };
 
   const handleContentTypeChange = (type: ContentType) => {
@@ -218,14 +258,23 @@ export default function NewEngramPage() {
         const suggestedConcepts = analysis?.agentTrainingPotential?.suggestedConcepts || [];
         const suggestedLessons = analysis?.agentTrainingPotential?.suggestedLessons || [];
         const suggestedModes = analysis?.agentTrainingPotential?.engramModes || [];
-        const fallbackId = slugify(formData.title || 'engram');
+        const prefill = analysis?.prefill || {};
+        const nextAgentProfile = mergeAgentProfile(formData.agentProfile, prefill.agentProfile);
+        const nextSkill = mergeSkill(formData.skill, prefill.skill);
+        const nextTitle = formData.title || prefill.title || '';
+        const nextDescription = formData.description || prefill.description || '';
+        const fallbackId = slugify(nextTitle || 'engram');
         const { agentEngramModesArray, remapEngram } = collapseKnowledgeModes(
           suggestedModes,
           fallbackId,
-          formData.title || fallbackId
+          nextTitle || fallbackId
         );
         updateFormData({
           aiAnalysis: analysis,
+          title: nextTitle,
+          description: nextDescription,
+          agentProfile: nextAgentProfile,
+          skill: nextSkill,
           agentExtraction: {
             concepts: suggestedConcepts.map((concept: any) => ({
               title: concept.title,
