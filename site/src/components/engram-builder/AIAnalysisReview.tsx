@@ -858,6 +858,8 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     );
   }
 
+  const canContinue = versionLocked || isAgentImport;
+
   return (
     <div className="space-y-6">
       {showAppliedToast && (
@@ -1721,10 +1723,12 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       <div className="flex justify-end pt-4 border-t">
         <button
           onClick={onContinue}
-          disabled={!versionLocked}
-          className={`px-6 py-3 rounded-lg font-medium ${versionLocked ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+          disabled={!canContinue}
+          className={`px-6 py-3 rounded-lg font-medium ${
+            canContinue ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
         >
-          {versionLocked ? 'Continue to Metadata →' : 'Apply version to continue'}
+          {canContinue ? 'Continue to Metadata →' : 'Apply version to continue'}
         </button>
       </div>
     </div>
