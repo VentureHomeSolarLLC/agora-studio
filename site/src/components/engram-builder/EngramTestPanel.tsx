@@ -7,16 +7,19 @@ interface EngramTestPanelProps {
 
 export function EngramTestPanel({ data }: EngramTestPanelProps) {
   const [allowWrites, setAllowWrites] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isRunningHealth, setIsRunningHealth] = useState(false);
+  const [isRunningAgent, setIsRunningAgent] = useState(false);
+  const [healthResult, setHealthResult] = useState<any>(null);
+  const [agentResult, setAgentResult] = useState<any>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
+  const [agentError, setAgentError] = useState<string | null>(null);
   const requiredIntegrations = Array.isArray(data.aiAnalysis?.requiredIntegrations)
     ? data.aiAnalysis.requiredIntegrations
     : [];
 
-  const runTest = async () => {
-    setIsRunning(true);
-    setError(null);
+  const runHealthCheck = async () => {
+    setIsRunningHealth(true);
+    setHealthError(null);
     try {
       const response = await fetch('/api/engrams/test', {
         method: 'POST',
@@ -28,14 +31,37 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
         throw new Error(text || 'Test failed');
       }
       const payload = await response.json();
-      setTestResult(payload);
+      setHealthResult(payload);
     } catch (err: any) {
-      setError(err?.message || 'Test failed.');
+      setHealthError(err?.message || 'Health checks failed.');
     } finally {
-      setIsRunning(false);
+      setIsRunningHealth(false);
     }
   };
 
+  const runAgentExecution = async () => {
+    setIsRunningAgent(true);
+    setAgentError(null);
+    try {
+      const response = await fetch('/api/engrams/test-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData: data, allowWrites }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Agent execution failed');
+      }
+      const payload = await response.json();
+      setAgentResult(payload);
+    } catch (err: any) {
+      setAgentError(err?.message || 'Agent execution failed.');
+    } finally {
+      setIsRunningAgent(false);
+    }
+  };
+
+  const healthPassed = Boolean(healthResult && healthResult.summary?.failed === 0);
   return (
     <div className="space-y-6">
       <div>
@@ -73,30 +99,45 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
         </div>
       )}
 
-      {error && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+      {healthError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg">{healthError}</div>}
 
-      <button
-        type="button"
-        onClick={runTest}
-        disabled={isRunning}
-        className="bg-gray-900 text-white px-6 py-3 rounded-lg disabled:opacity-50"
-      >
-        {isRunning ? 'Running test…' : 'Run test on VM'}
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={runHealthCheck}
+          disabled={isRunningHealth}
+          className="bg-gray-900 text-white px-6 py-3 rounded-lg disabled:opacity-50"
+        >
+          {isRunningHealth ? 'Running health checks…' : 'Run integration health checks'}
+        </button>
+        <button
+          type="button"
+          onClick={runAgentExecution}
+          disabled={isRunningAgent || !healthPassed}
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg disabled:opacity-50"
+        >
+          {isRunningAgent ? 'Running agent execution…' : 'Run full sub-agent execution'}
+        </button>
+      </div>
+      {!healthPassed && healthResult && (
+        <p className="text-xs text-amber-700 mt-2">
+          Fix failed health checks before running the full execution.
+        </p>
+      )}
 
-      {testResult && (
+      {healthResult && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-700">Test Summary</h3>
-            <span className="text-xs text-gray-500">Logs: {testResult.logPath}</span>
+            <span className="text-xs text-gray-500">Logs: {healthResult.logPath}</span>
           </div>
           <div className="text-sm text-gray-600">
-            Passed: {testResult.summary?.passed || 0} · Failed: {testResult.summary?.failed || 0} · Skipped:{' '}
-            {testResult.summary?.skipped || 0}
+            Passed: {healthResult.summary?.passed || 0} · Failed: {healthResult.summary?.failed || 0} · Skipped:{' '}
+            {healthResult.summary?.skipped || 0}
           </div>
           <div className="space-y-2">
-            {Array.isArray(testResult.checks) &&
-              testResult.checks.map((check: any, idx: number) => (
+            {Array.isArray(healthResult.checks) &&
+              healthResult.checks.map((check: any, idx: number) => (
                 <div key={`check-${idx}`} className="flex items-center justify-between text-sm">
                   <span className="text-gray-800">{check.name}</span>
                   <span
@@ -111,8 +152,25 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
                     {check.status}
                   </span>
                 </div>
-              ))}
+            ))}
           </div>
+        </div>
+      )}
+
+      {agentError && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg">{agentError}</div>}
+
+      {agentResult && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-700">Agent Execution</h3>
+            <span className="text-xs text-gray-500">Logs: {agentResult.logPath}</span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Test ID: {agentResult.testId}
+          </div>
+          <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-auto">
+            {JSON.stringify(agentResult.result || {}, null, 2)}
+          </pre>
         </div>
       )}
     </div>
