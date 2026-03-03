@@ -598,6 +598,21 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 />
               </div>
             )}
+            {infrastructure?.missingFields?.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs font-semibold text-gray-800">Missing field checklist</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {infrastructure.missingFields.map((field: string, idx: number) => (
+                    <span
+                      key={`missing-field-${idx}`}
+                      className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200"
+                    >
+                      {field}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             {infrastructure?.missingFrontmatter?.length > 0 && (
               <div className="text-xs text-gray-700 mb-2">
                 <p className="font-semibold text-gray-800">Missing YAML pieces:</p>
