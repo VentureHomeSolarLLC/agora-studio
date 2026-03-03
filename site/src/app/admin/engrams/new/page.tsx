@@ -183,8 +183,10 @@ export default function NewEngramPage() {
       const value = prefill[key];
       const currentValue = next[key];
       const defaultValue = (DEFAULT_SKILL as any)[key];
-      const shouldFill =
-        isEmptyValue(currentValue) || (typeof defaultValue !== 'undefined' && currentValue === defaultValue);
+      const isStepsKey = key === 'steps';
+      const shouldFill = isStepsKey
+        ? (!Array.isArray(currentValue) || currentValue.length === 0)
+        : isEmptyValue(currentValue) || (typeof defaultValue !== 'undefined' && currentValue === defaultValue);
       if (shouldFill && !isEmptyValue(value)) {
         next[key] = value;
       }

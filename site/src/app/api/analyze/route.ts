@@ -870,7 +870,6 @@ Guidelines:
 }
 
 async function analyzeAgentImport(content: string, title: string) {
-  const prefill = extractAgentPrefillFromSkill(content);
   const response = await openai.chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages: [
@@ -879,6 +878,23 @@ async function analyzeAgentImport(content: string, title: string) {
         content: `You are converting an existing monolithic SKILL.md into Engram v2 files. Extract the reusable knowledge so it can be routed into the correct Engram folders.
 
 Return JSON with:
+- skillDraft: {
+    name,
+    type: consultation | diagnostic | procedural | creative | knowledge,
+    domain,
+    subdomains: string[],
+    triggerQuestions: string[],
+    outcome,
+    riskLevel: low | medium | high,
+    triggers: string[],
+    requiredInputs: string[],
+    constraints: string[],
+    allowedSystems: string[],
+    escalationCriteria: string[],
+    stopConditions: string[],
+    prerequisites: string[],
+    steps: [{title, content, type: text | checkbox | decision}]
+  }
 - agentTrainingPotential: {
     suggestedConcepts: [{ title, content, forEngram, confidence, riskLevel }],
     suggestedLessons: [{ title, scenario, solution, forEngram, confidence, riskLevel }],
@@ -906,6 +922,7 @@ Guidelines:
 
   const raw = response.choices[0].message.content;
   const parsed = safeParseJson(raw, {
+    skillDraft: null,
     agentTrainingPotential: {
       suggestedConcepts: [],
       suggestedLessons: [],
@@ -914,6 +931,11 @@ Guidelines:
     suggestedTags: [],
     warnings: ['AI response parsing failed.'],
   });
+
+  const prefill = mergePrefill(
+    buildPrefillFromSkillDraft(parsed?.skillDraft),
+    extractAgentPrefillFromSkill(content)
+  );
 
   return {
     ...parsed,
@@ -926,6 +948,24 @@ type AgentPrefill = {
   description?: string;
   agentProfile?: Record<string, any>;
   skill?: Record<string, any>;
+};
+
+type SkillDraft = {
+  name?: string;
+  type?: string;
+  domain?: string;
+  subdomains?: string[];
+  triggerQuestions?: string[];
+  outcome?: string;
+  riskLevel?: string;
+  triggers?: string[];
+  requiredInputs?: string[];
+  constraints?: string[];
+  allowedSystems?: string[];
+  escalationCriteria?: string[];
+  stopConditions?: string[];
+  prerequisites?: string[];
+  steps?: { title?: string; content?: string; type?: 'text' | 'checkbox' | 'decision' }[];
 };
 
 function asStringList(value: any): string[] {
@@ -987,4 +1027,53 @@ function extractAgentPrefillFromSkill(content: string): AgentPrefill {
     console.warn('Failed to parse skill frontmatter:', error);
     return {};
   }
+}
+
+function buildPrefillFromSkillDraft(skillDraft?: SkillDraft | null): AgentPrefill {
+  if (!skillDraft) return {};
+  const title = skillDraft.name || undefined;
+  const agentProfile = {
+    skillMode: skillDraft.type === 'knowledge' ? 'knowledge' : 'procedure',
+    skillType: skillDraft.type || undefined,
+    domain: skillDraft.domain || undefined,
+    subdomains: asStringList(skillDraft.subdomains),
+    triggerQuestions: asStringList(skillDraft.triggerQuestions),
+    outcome: skillDraft.outcome || undefined,
+    riskLevel: skillDraft.riskLevel || undefined,
+    triggers: asStringList(skillDraft.triggers),
+    requiredInputs: asStringList(skillDraft.requiredInputs),
+    constraints: asStringList(skillDraft.constraints),
+    allowedSystems: asStringList(skillDraft.allowedSystems),
+    escalationCriteria: asStringList(skillDraft.escalationCriteria),
+    stopConditions: asStringList(skillDraft.stopConditions),
+  };
+  const skill = {
+    prerequisites: asStringList(skillDraft.prerequisites),
+    steps: Array.isArray(skillDraft.steps)
+      ? skillDraft.steps
+          .filter((step) => step && (step.title || step.content))
+          .map((step) => ({
+            title: step.title || 'Untitled step',
+            content: step.content || '',
+            type: step.type || 'text',
+          }))
+      : [],
+  };
+
+  return {
+    title,
+    agentProfile,
+    skill,
+  };
+}
+
+function mergePrefill(base: AgentPrefill, override: AgentPrefill): AgentPrefill {
+  const merged: AgentPrefill = { ...base, ...override };
+  if (base.agentProfile || override.agentProfile) {
+    merged.agentProfile = { ...(base.agentProfile || {}), ...(override.agentProfile || {}) };
+  }
+  if (base.skill || override.skill) {
+    merged.skill = { ...(base.skill || {}), ...(override.skill || {}) };
+  }
+  return merged;
 }

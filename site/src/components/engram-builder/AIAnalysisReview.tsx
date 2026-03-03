@@ -518,6 +518,22 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
         </div>
       )}
 
+      {isAgentImport && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium text-gray-900">Reconstructed Skill Steps</h3>
+            <span className="text-xs text-gray-500">Edit anything before publishing</span>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            We rebuilt steps from the uploaded SKILL.md file. Adjust them to match the exact workflow.
+          </p>
+          <SkillBuilder
+            data={data.skill}
+            onChange={(next) => onChange({ skill: next })}
+          />
+        </div>
+      )}
+
       {renderDuplicateCheck()}
 
       {data.contentType === 'internal' && !analysis?.beforeAfter?.after && (
