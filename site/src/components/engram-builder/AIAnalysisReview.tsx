@@ -184,6 +184,45 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     };
   }, [isAgentImport, infrastructure, data.agentProfile?.domain, data.agentProfile?.subdomains]);
 
+  const listFrontmatterKeys = new Set([
+    'subdomains',
+    'triggers',
+    'requiredInputs',
+    'constraints',
+    'allowedSystems',
+    'escalationCriteria',
+    'stopConditions',
+  ]);
+
+  const buildFrontmatterDrafts = () => ({
+    subdomains: (data.agentProfile?.subdomains || []).join('\n'),
+    triggers: (data.agentProfile?.triggers || []).join(', '),
+    requiredInputs: (data.agentProfile?.requiredInputs || []).join(', '),
+    constraints: (data.agentProfile?.constraints || []).join(', '),
+    allowedSystems: (data.agentProfile?.allowedSystems || []).join(', '),
+    escalationCriteria: (data.agentProfile?.escalationCriteria || []).join(', '),
+    stopConditions: (data.agentProfile?.stopConditions || []).join(', '),
+  });
+
+  const [frontmatterDrafts, setFrontmatterDrafts] = useState(buildFrontmatterDrafts());
+  const [activeFrontmatterField, setActiveFrontmatterField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeFrontmatterField) return;
+    setFrontmatterDrafts(buildFrontmatterDrafts());
+  }, [data.agentProfile, activeFrontmatterField]);
+
+  const updateFrontmatterDraft = (key: keyof typeof frontmatterDrafts, value: string) => {
+    setFrontmatterDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const commitFrontmatterDraft = (field: { key: string; onChange: (value: string) => void }) => {
+    const key = field.key as keyof typeof frontmatterDrafts;
+    if (!(key in frontmatterDrafts)) return;
+    field.onChange(frontmatterDrafts[key] || '');
+    setActiveFrontmatterField(null);
+  };
+
   const frontmatterFields = useMemo(() => {
     if (!isAgentWizard) return [];
     const isKnowledge = data.agentProfile?.skillMode === 'knowledge';
@@ -1127,10 +1166,30 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                     <label className="block text-xs font-semibold text-gray-700 mb-1">{field.label}</label>
                     {field.type === 'textarea' ? (
                       <textarea
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
+                        onChange={(e) => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            updateFrontmatterDraft(field.key as keyof typeof frontmatterDrafts, e.target.value);
+                          } else {
+                            field.onChange(e.target.value);
+                          }
+                        }}
+                        onFocus={() => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            setActiveFrontmatterField(field.key);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            commitFrontmatterDraft(field);
+                          }
+                        }}
                         placeholder={field.placeholder}
                         rows={2}
+                        value={
+                          listFrontmatterKeys.has(field.key)
+                            ? (frontmatterDrafts[field.key as keyof typeof frontmatterDrafts] || '')
+                            : field.value
+                        }
                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20 ${
                           missingFrontmatterKeys.has(field.key)
                             ? 'border-rose-300 focus:border-rose-300'
@@ -1139,8 +1198,28 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       />
                     ) : field.type === 'select' ? (
                       <select
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
+                        value={
+                          listFrontmatterKeys.has(field.key)
+                            ? (frontmatterDrafts[field.key as keyof typeof frontmatterDrafts] || '')
+                            : field.value
+                        }
+                        onChange={(e) => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            updateFrontmatterDraft(field.key as keyof typeof frontmatterDrafts, e.target.value);
+                          } else {
+                            field.onChange(e.target.value);
+                          }
+                        }}
+                        onFocus={() => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            setActiveFrontmatterField(field.key);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            commitFrontmatterDraft(field);
+                          }
+                        }}
                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20 ${
                           missingFrontmatterKeys.has(field.key)
                             ? 'border-rose-300 focus:border-rose-300'
@@ -1154,8 +1233,28 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                     ) : (
                       <input
                         type="text"
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
+                        value={
+                          listFrontmatterKeys.has(field.key)
+                            ? (frontmatterDrafts[field.key as keyof typeof frontmatterDrafts] || '')
+                            : field.value
+                        }
+                        onChange={(e) => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            updateFrontmatterDraft(field.key as keyof typeof frontmatterDrafts, e.target.value);
+                          } else {
+                            field.onChange(e.target.value);
+                          }
+                        }}
+                        onFocus={() => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            setActiveFrontmatterField(field.key);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (listFrontmatterKeys.has(field.key)) {
+                            commitFrontmatterDraft(field);
+                          }
+                        }}
                         placeholder={field.placeholder}
                         className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20 ${
                           missingFrontmatterKeys.has(field.key)

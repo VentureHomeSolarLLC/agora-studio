@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { EngramFormData, ContentType, CONTENT_TYPE_CONFIG, AgentProfile, AGENT_DOMAIN_SUGGESTIONS } from '@/types/engram';
 
 interface BasicInfoFormProps {
@@ -13,6 +13,7 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
   const isKnowledgeOnly = agentProfile?.skillMode === 'knowledge';
   const isMonolithImport = contentType === 'agent' && data.agentImportMode === 'monolith';
   const [showImported, setShowImported] = useState(false);
+  const [activeField, setActiveField] = useState<string | null>(null);
   const defaultAgentProfile: Partial<AgentProfile> = {
     skillMode: 'procedure',
     skillType: 'procedural',
@@ -39,6 +40,31 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
   const asText = (values?: string[]) => values?.join(', ') || '';
   const asLines = (values?: string[]) => values?.join('\n') || '';
   const linesToList = (value: string) => value.split('\n').map((item) => item.trim()).filter(Boolean);
+  const buildDrafts = (profile?: AgentProfile | null) => ({
+    subdomains: asLines(profile?.subdomains),
+    triggers: asText(profile?.triggers),
+    requiredInputs: asText(profile?.requiredInputs),
+    constraints: asText(profile?.constraints),
+    allowedSystems: asText(profile?.allowedSystems),
+    escalationCriteria: asText(profile?.escalationCriteria),
+    stopConditions: asText(profile?.stopConditions),
+  });
+  const [listDrafts, setListDrafts] = useState(buildDrafts(agentProfile));
+
+  useEffect(() => {
+    if (activeField) return;
+    setListDrafts(buildDrafts(agentProfile));
+  }, [agentProfile, activeField]);
+
+  const updateDraft = (key: keyof typeof listDrafts, value: string) => {
+    setListDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const commitDraft = (key: keyof typeof listDrafts) => {
+    const value = listDrafts[key] || '';
+    updateAgentProfile({ [key]: asList(value) } as Partial<AgentProfile>);
+    setActiveField(null);
+  };
   const setSkillMode = (mode: AgentProfile['skillMode']) => {
     const updates: Partial<AgentProfile> = { skillMode: mode };
     if (mode === 'knowledge') {
@@ -197,8 +223,10 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
                   <div>
                 <label className="block text-sm font-medium mb-2">Subdomains</label>
                 <textarea
-                  value={asLines(agentProfile?.subdomains)}
-                  onChange={(e) => updateAgentProfile({ subdomains: asList(e.target.value) })}
+                  value={listDrafts.subdomains}
+                  onFocus={() => setActiveField('subdomains')}
+                  onChange={(e) => updateDraft('subdomains', e.target.value)}
+                  onBlur={() => commitDraft('subdomains')}
                   placeholder="energy_savings\ninterconnection"
                   rows={2}
                   className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
@@ -228,8 +256,10 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
               <label className="block text-sm font-medium mb-2">Triggers</label>
               <input
                 type="text"
-                value={asText(agentProfile?.triggers)}
-                onChange={(e) => updateAgentProfile({ triggers: asList(e.target.value) })}
+                value={listDrafts.triggers}
+                onFocus={() => setActiveField('triggers')}
+                onChange={(e) => updateDraft('triggers', e.target.value)}
+                onBlur={() => commitDraft('triggers')}
                 placeholder="e.g., nightly IC cron job, TaskRay task ready, customer wants to add EV charger"
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
               />
@@ -242,8 +272,10 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
               <label className="block text-sm font-medium mb-2">Required Inputs</label>
               <input
                 type="text"
-                value={asText(agentProfile?.requiredInputs)}
-                onChange={(e) => updateAgentProfile({ requiredInputs: asList(e.target.value) })}
+                value={listDrafts.requiredInputs}
+                onFocus={() => setActiveField('requiredInputs')}
+                onChange={(e) => updateDraft('requiredInputs', e.target.value)}
+                onBlur={() => commitDraft('requiredInputs')}
                 placeholder="e.g., site survey, utility account, panel photos"
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
               />
@@ -254,8 +286,10 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
             <div>
               <label className="block text-sm font-medium mb-2">Constraints / No-Go Rules</label>
               <textarea
-                value={asText(agentProfile?.constraints)}
-                onChange={(e) => updateAgentProfile({ constraints: asList(e.target.value) })}
+                value={listDrafts.constraints}
+                onFocus={() => setActiveField('constraints')}
+                onChange={(e) => updateDraft('constraints', e.target.value)}
+                onBlur={() => commitDraft('constraints')}
                 placeholder="e.g., do not schedule same-day installs, never promise incentives"
                 rows={2}
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
@@ -268,8 +302,10 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
               <label className="block text-sm font-medium mb-2">Allowed Systems</label>
               <input
                 type="text"
-                value={asText(agentProfile?.allowedSystems)}
-                onChange={(e) => updateAgentProfile({ allowedSystems: asList(e.target.value) })}
+                value={listDrafts.allowedSystems}
+                onFocus={() => setActiveField('allowedSystems')}
+                onChange={(e) => updateDraft('allowedSystems', e.target.value)}
+                onBlur={() => commitDraft('allowedSystems')}
                 placeholder="e.g., Aurora, Salesforce, Enphase portal"
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
               />
@@ -280,8 +316,10 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
             <div>
               <label className="block text-sm font-medium mb-2">Escalation Criteria</label>
               <textarea
-                value={asText(agentProfile?.escalationCriteria)}
-                onChange={(e) => updateAgentProfile({ escalationCriteria: asList(e.target.value) })}
+                value={listDrafts.escalationCriteria}
+                onFocus={() => setActiveField('escalationCriteria')}
+                onChange={(e) => updateDraft('escalationCriteria', e.target.value)}
+                onBlur={() => commitDraft('escalationCriteria')}
                 placeholder="e.g., customer requests financing exception, safety concerns found"
                 rows={2}
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
@@ -293,8 +331,10 @@ export function BasicInfoForm({ data, onChange, contentType }: BasicInfoFormProp
             <div>
               <label className="block text-sm font-medium mb-2">Stop Conditions</label>
               <textarea
-                value={asText(agentProfile?.stopConditions)}
-                onChange={(e) => updateAgentProfile({ stopConditions: asList(e.target.value) })}
+                value={listDrafts.stopConditions}
+                onFocus={() => setActiveField('stopConditions')}
+                onChange={(e) => updateDraft('stopConditions', e.target.value)}
+                onBlur={() => commitDraft('stopConditions')}
                 placeholder="e.g., missing required docs, unsafe electrical condition"
                 rows={2}
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
