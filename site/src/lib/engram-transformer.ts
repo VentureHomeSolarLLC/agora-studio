@@ -2,10 +2,22 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import yaml from 'js-yaml';
+import matter from 'gray-matter';
 import { EngramFormData, CONTENT_TYPE_CONFIG } from '@/types/engram';
 
-type ExtractionConcept = { title: string; content: string; forEngram?: string };
-type ExtractionLesson = { title: string; scenario: string; solution: string; forEngram?: string };
+type ExtractionConcept = {
+  title: string;
+  content: string;
+  forEngram?: string;
+  mergeStrategy?: 'append' | 'replace';
+};
+type ExtractionLesson = {
+  title: string;
+  scenario: string;
+  solution: string;
+  forEngram?: string;
+  mergeStrategy?: 'append' | 'replace';
+};
 type EngramGroup = { engramTitle: string; concepts: ExtractionConcept[]; lessons: ExtractionLesson[] };
 type IndexEntry = { title: string; fileName: string };
 type SourceInfo = { id: string; type: 'customer' | 'internal' | 'agent'; hash: string };
@@ -21,6 +33,10 @@ export function transformToEngram(formData: EngramFormData) {
     const extractedLessons = formData.agentExtraction?.lessons?.filter((l) => l.include) || [];
     const mergeConcepts = formData.agentExtraction?.concepts?.filter((c) => c.mergeTargetPath) || [];
     const mergeLessons = formData.agentExtraction?.lessons?.filter((l) => l.mergeTargetPath) || [];
+    const replaceConcepts = mergeConcepts.filter((c) => c.mergeStrategy === 'replace');
+    const appendConcepts = mergeConcepts.filter((c) => c.mergeStrategy !== 'replace');
+    const replaceLessons = mergeLessons.filter((l) => l.mergeStrategy === 'replace');
+    const appendLessons = mergeLessons.filter((l) => l.mergeStrategy !== 'replace');
 
     const grouped = groupAgentExtracts(extractedConcepts, extractedLessons, engramId);
     const repoRoot = getRepoRoot();
@@ -115,8 +131,23 @@ export function transformToEngram(formData: EngramFormData) {
       }
     }
 
-    if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
-      const mergeUpdates = buildMergeUpdates(mergeConcepts, mergeLessons, sourceInfo);
+    if (replaceConcepts.length > 0 || replaceLessons.length > 0) {
+      replaceConcepts.forEach((concept) => {
+        if (!concept.mergeTargetPath) return;
+        const fullPath = path.join(repoRoot, concept.mergeTargetPath);
+        const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
+        files[concept.mergeTargetPath] = replaceConceptFile(existing, concept, sourceInfo, engramId);
+      });
+      replaceLessons.forEach((lesson) => {
+        if (!lesson.mergeTargetPath) return;
+        const fullPath = path.join(repoRoot, lesson.mergeTargetPath);
+        const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
+        files[lesson.mergeTargetPath] = replaceLessonFile(existing, lesson, sourceInfo, engramId);
+      });
+    }
+
+    if (appendConcepts.length > 0 || appendLessons.length > 0) {
+      const mergeUpdates = buildMergeUpdates(appendConcepts, appendLessons, sourceInfo);
       mergeUpdates.forEach((blocks, targetPath) => {
         const fullPath = path.join(repoRoot, targetPath);
         const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
@@ -232,8 +263,23 @@ export function transformToEngram(formData: EngramFormData) {
       }
     }
 
-    if (mergeConcepts.length > 0 || mergeLessons.length > 0) {
-      const mergeUpdates = buildMergeUpdates(mergeConcepts, mergeLessons, sourceInfo);
+    if (replaceConcepts.length > 0 || replaceLessons.length > 0) {
+      replaceConcepts.forEach((concept) => {
+        if (!concept.mergeTargetPath) return;
+        const fullPath = path.join(repoRoot, concept.mergeTargetPath);
+        const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
+        files[concept.mergeTargetPath] = replaceConceptFile(existing, concept, sourceInfo, engramId);
+      });
+      replaceLessons.forEach((lesson) => {
+        if (!lesson.mergeTargetPath) return;
+        const fullPath = path.join(repoRoot, lesson.mergeTargetPath);
+        const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
+        files[lesson.mergeTargetPath] = replaceLessonFile(existing, lesson, sourceInfo, engramId);
+      });
+    }
+
+    if (appendConcepts.length > 0 || appendLessons.length > 0) {
+      const mergeUpdates = buildMergeUpdates(appendConcepts, appendLessons, sourceInfo);
       mergeUpdates.forEach((blocks, targetPath) => {
         const fullPath = path.join(repoRoot, targetPath);
         const existing = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
@@ -580,6 +626,95 @@ function appendMergeBlocks(existing: string, blocks: { marker: string; content: 
     }
   });
   return updated;
+}
+
+function replaceConceptFile(
+  existingContent: string,
+  concept: ExtractionConcept,
+  sourceInfo: SourceInfo,
+  fallbackEngramId: string
+): string {
+  const today = getTodayDate();
+  const parsed = matter(existingContent || '');
+  const existing = parsed.data || {};
+  const title = concept.title || existing.title || 'Untitled Concept';
+  const engramId = existing.engram_id || resolveTargetEngramId(concept.forEngram, fallbackEngramId);
+  const conceptId = existing.concept_id || slugify(title);
+  const tags = Array.isArray(existing.tags) ? existing.tags : [];
+  const mergedTags = Array.from(new Set([...tags, 'auto-extracted']));
+  const sourceField =
+    sourceInfo.type === 'internal'
+      ? { source_internal_doc: sourceInfo.id }
+      : sourceInfo.type === 'agent'
+      ? { source_agent_skill: sourceInfo.id }
+      : { source_customer_page: sourceInfo.id };
+
+  const frontmatter = {
+    ...existing,
+    engram_id: engramId,
+    concept_id: conceptId,
+    title,
+    type: 'concept',
+    tags: mergedTags,
+    last_verified: today,
+    updated: new Date().toISOString(),
+    auto_extracted: true,
+    ...sourceField,
+    source_hash: sourceInfo.hash,
+  };
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    title +
+    '\n\n' +
+    (concept.content || parsed.content || '')
+  );
+}
+
+function replaceLessonFile(
+  existingContent: string,
+  lesson: ExtractionLesson,
+  sourceInfo: SourceInfo,
+  fallbackEngramId: string
+): string {
+  const today = getTodayDate();
+  const parsed = matter(existingContent || '');
+  const existing = parsed.data || {};
+  const title = lesson.title || existing.title || 'Untitled Lesson';
+  const engramId = existing.engram_id || resolveTargetEngramId(lesson.forEngram, fallbackEngramId);
+  const lessonId = existing.lesson_id || `${today}-${slugify(title)}`;
+  const sourceField =
+    sourceInfo.type === 'internal'
+      ? { source_internal_doc: sourceInfo.id }
+      : sourceInfo.type === 'agent'
+      ? { source_agent_skill: sourceInfo.id }
+      : { source_customer_page: sourceInfo.id };
+
+  const frontmatter = {
+    ...existing,
+    engram_id: engramId,
+    lesson_id: lessonId,
+    date: existing.date || today,
+    title,
+    type: 'lesson',
+    updated: new Date().toISOString(),
+    auto_extracted: true,
+    ...sourceField,
+    source_hash: sourceInfo.hash,
+  };
+
+  return (
+    '---\n' +
+    yaml.dump(frontmatter) +
+    '---\n# ' +
+    title +
+    '\n\n## Scenario\n' +
+    (lesson.scenario || '') +
+    '\n\n## Solution\n' +
+    (lesson.solution || '')
+  );
 }
 
 function generateAutoEngramIndexMd(params: {

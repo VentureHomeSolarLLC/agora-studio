@@ -201,6 +201,21 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       mergeTargetPath: path || undefined,
       mergeTargetTitle: title || undefined,
       mergeTargetType: type || undefined,
+      mergeStrategy: path ? 'append' : undefined,
+    };
+    updateExtraction({ concepts });
+  };
+
+  const setConceptReplace = (index: number, path: string, title: string, type: string) => {
+    if (!extraction) return;
+    const concepts = [...extraction.concepts];
+    concepts[index] = {
+      ...concepts[index],
+      include: false,
+      mergeTargetPath: path || undefined,
+      mergeTargetTitle: title || undefined,
+      mergeTargetType: type || undefined,
+      mergeStrategy: path ? 'replace' : undefined,
     };
     updateExtraction({ concepts });
   };
@@ -214,6 +229,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       mergeTargetPath: path || undefined,
       mergeTargetTitle: title || undefined,
       mergeTargetType: type || undefined,
+      mergeStrategy: path ? 'append' : undefined,
     };
     updateExtraction({ lessons });
   };
@@ -593,8 +609,10 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
               {extraction.concepts.map((concept, i) => {
                 const isDuplicate = concept.duplicate?.similar;
                 const topMatch = concept.duplicate?.matches?.[0];
+                const conflict = concept.conflict;
                 const mergeOptions =
                   concept.duplicate?.matches?.filter((match: DuplicateMatch) => match.type === 'concept') || [];
+                const replaceTarget = mergeOptions[0];
                 return (
                 <div key={`${concept.title}-${i}`} className="bg-white border border-blue-100 rounded-lg p-3">
                   <div className="flex items-start justify-between gap-4">
@@ -624,6 +642,12 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                               Open existing
                             </a>
                           </div>
+                          {conflict?.existingLastVerified && (
+                            <p className="text-xs text-amber-700 mt-1">
+                              Existing last verified: {conflict.existingLastVerified}
+                              {conflict.existingStale ? ' (stale)' : ''}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -637,6 +661,36 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       {isDuplicate ? 'Duplicate' : 'Include'}
                     </label>
                   </div>
+                  {isDuplicate && conflict?.hasConflict && replaceTarget && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-xs font-medium text-red-900 mb-2">Potential conflict detected</p>
+                      {conflict.details && conflict.details.length > 0 ? (
+                        <ul className="text-xs text-red-800 space-y-1">
+                          {conflict.details.map((detail, idx) => (
+                            <li key={`${concept.title}-conflict-${idx}`}>• {detail}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-red-800">This content conflicts with the existing file.</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConceptReplace(i, replaceTarget.path, replaceTarget.title, replaceTarget.type)}
+                          className="text-xs px-3 py-1 rounded-full bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Replace existing file
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConceptMerge(i, replaceTarget.path, replaceTarget.title, replaceTarget.type)}
+                          className="text-xs px-3 py-1 rounded-full bg-white text-red-700 border border-red-200 hover:bg-red-50"
+                        >
+                          Append as note
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {isDuplicate && mergeOptions.length > 0 && (
                     <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
                       <p className="text-xs font-medium text-amber-900 mb-2">Merge into existing concept</p>
@@ -657,7 +711,13 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       </select>
                       {concept.mergeTargetPath && (
                         <p className="text-xs text-amber-800 mt-2">
-                          This will append the new context to <span className="font-medium">{concept.mergeTargetTitle}</span>.
+                          {concept.mergeStrategy === 'replace'
+                            ? 'This will replace the existing file with the new content.'
+                            : (
+                              <>
+                                This will append the new context to <span className="font-medium">{concept.mergeTargetTitle}</span>.
+                              </>
+                            )}
                         </p>
                       )}
                     </div>

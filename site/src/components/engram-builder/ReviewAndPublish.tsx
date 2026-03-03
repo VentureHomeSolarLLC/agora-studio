@@ -99,10 +99,20 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
     const mergeConcepts = extraction.concepts?.filter((c) => c.mergeTargetPath) || [];
     const mergeLessons = extraction.lessons?.filter((l) => l.mergeTargetPath) || [];
     mergeConcepts.forEach((concept) => {
-      mergeFiles.push(`Append concept to ${concept.mergeTargetPath} (${concept.mergeTargetTitle || 'existing concept'})`);
+      const verb = concept.mergeStrategy === 'replace' ? 'Replace' : 'Append';
+      mergeFiles.push(
+        `${verb} concept in ${concept.mergeTargetPath} (${concept.mergeTargetTitle || 'existing concept'})`
+      );
+      if (concept.mergeStrategy === 'replace') {
+        addTreePath(concept.mergeTargetPath);
+      }
     });
     mergeLessons.forEach((lesson) => {
-      mergeFiles.push(`Append lesson to ${lesson.mergeTargetPath} (${lesson.mergeTargetTitle || 'existing lesson'})`);
+      const verb = lesson.mergeStrategy === 'replace' ? 'Replace' : 'Append';
+      mergeFiles.push(`${verb} lesson in ${lesson.mergeTargetPath} (${lesson.mergeTargetTitle || 'existing lesson'})`);
+      if (lesson.mergeStrategy === 'replace') {
+        addTreePath(lesson.mergeTargetPath);
+      }
     });
   };
   

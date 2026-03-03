@@ -31,6 +31,7 @@ export interface AgentExtractionConcept {
   mergeTargetPath?: string;
   mergeTargetTitle?: string;
   mergeTargetType?: string;
+  mergeStrategy?: 'append' | 'replace';
   conflict?: {
     hasConflict: boolean;
     details?: string[];
@@ -63,6 +64,7 @@ export interface AgentExtractionLesson {
   mergeTargetPath?: string;
   mergeTargetTitle?: string;
   mergeTargetType?: string;
+  mergeStrategy?: 'append' | 'replace';
   duplicate?: {
     similar: boolean;
     topScore: number;
