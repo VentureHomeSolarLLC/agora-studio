@@ -360,6 +360,10 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     () => frontmatterFields.filter((field) => field.required),
     [frontmatterFields]
   );
+  const missingFrontmatterKeys = useMemo(
+    () => new Set(missingFrontmatterFields.map((field) => field.key)),
+    [missingFrontmatterFields]
+  );
 
   const suggestionsByKey = useMemo(() => {
     if (!isAgentWizard) return {};
@@ -1101,7 +1105,9 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 <h3 className="font-medium text-gray-900">Complete Frontmatter</h3>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-500">
-                    {missingFrontmatterFields.length > 0 ? 'Fill required fields below' : 'All required fields complete'}
+                    {missingFrontmatterFields.length > 0
+                      ? `${missingFrontmatterFields.length} required field${missingFrontmatterFields.length === 1 ? '' : 's'} still missing`
+                      : 'All required fields complete'}
                   </span>
                   <button
                     type="button"
@@ -1114,7 +1120,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 </div>
               </div>
               <div className="space-y-3">
-                {(missingFrontmatterFields.length > 0 ? missingFrontmatterFields : requiredFrontmatterFields).map((field) => (
+                {requiredFrontmatterFields.map((field) => (
                   <div key={field.key}>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">{field.label}</label>
                     {field.type === 'textarea' ? (
@@ -1123,13 +1129,21 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                         onChange={(e) => field.onChange(e.target.value)}
                         placeholder={field.placeholder}
                         rows={2}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                        className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20 ${
+                          missingFrontmatterKeys.has(field.key)
+                            ? 'border-rose-300 focus:border-rose-300'
+                            : 'border-gray-200 focus:border-[#F7FF96]'
+                        }`}
                       />
                     ) : field.type === 'select' ? (
                       <select
                         value={field.value}
                         onChange={(e) => field.onChange(e.target.value)}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                        className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20 ${
+                          missingFrontmatterKeys.has(field.key)
+                            ? 'border-rose-300 focus:border-rose-300'
+                            : 'border-gray-200 focus:border-[#F7FF96]'
+                        }`}
                       >
                         {field.options?.map((option) => (
                           <option key={option} value={option}>{option}</option>
@@ -1141,7 +1155,11 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                         value={field.value}
                         onChange={(e) => field.onChange(e.target.value)}
                         placeholder={field.placeholder}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                        className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20 ${
+                          missingFrontmatterKeys.has(field.key)
+                            ? 'border-rose-300 focus:border-rose-300'
+                            : 'border-gray-200 focus:border-[#F7FF96]'
+                        }`}
                       />
                     )}
                     {field.key === 'subdomains' && (
