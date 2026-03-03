@@ -217,6 +217,74 @@ export function EngramTestPanel({ data }: EngramTestPanelProps) {
           <div className="text-sm text-gray-600">
             Test ID: {agentResult.testId}
           </div>
+          {agentResult.summary && (
+            <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 text-sm text-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-gray-800">OpenClaw Summary</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full border text-xs ${
+                    agentResult.summary.status === 'pass'
+                      ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                      : agentResult.summary.status === 'fail'
+                      ? 'border-red-200 text-red-700 bg-red-50'
+                      : 'border-gray-200 text-gray-500 bg-gray-50'
+                  }`}
+                >
+                  {agentResult.summary.status || 'unknown'}
+                </span>
+              </div>
+              {Array.isArray(agentResult.summary.missingInputs) && agentResult.summary.missingInputs.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Missing inputs</div>
+                  <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                    {agentResult.summary.missingInputs.map((item: string, idx: number) => (
+                      <li key={`missing-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(agentResult.summary.unclearSteps) && agentResult.summary.unclearSteps.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Unclear steps / conflicts</div>
+                  <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                    {agentResult.summary.unclearSteps.map((item: string, idx: number) => (
+                      <li key={`unclear-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(agentResult.summary.simulatedActions) && agentResult.summary.simulatedActions.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Simulated external actions</div>
+                  <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                    {agentResult.summary.simulatedActions.map((item: string, idx: number) => (
+                      <li key={`sim-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(agentResult.summary.filesWritten) && agentResult.summary.filesWritten.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Files written</div>
+                  <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                    {agentResult.summary.filesWritten.map((item: string, idx: number) => (
+                      <li key={`files-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(agentResult.summary.notes) && agentResult.summary.notes.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Notes</div>
+                  <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                    {agentResult.summary.notes.map((item: string, idx: number) => (
+                      <li key={`notes-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           {agentLog && (
             <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-64 overflow-auto">
               {agentLog}

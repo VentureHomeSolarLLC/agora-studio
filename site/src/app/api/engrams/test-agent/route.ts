@@ -5,6 +5,15 @@ import { transformToEngram } from '@/lib/engram-transformer';
 
 export const runtime = 'nodejs';
 
+type OpenClawSummary = {
+  status: 'pass' | 'fail' | 'unknown';
+  missingInputs: string[];
+  unclearSteps: string[];
+  simulatedActions: string[];
+  filesWritten: string[];
+  notes: string[];
+};
+
 function slugify(text: string) {
   return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
 }
@@ -17,6 +26,81 @@ function ensureDir(dirPath: string) {
 
 function writeLog(logPath: string, message: string) {
   fs.appendFileSync(logPath, `${new Date().toISOString()} ${message}\n`);
+}
+
+function normalizeList(value: any): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/\n|,|;|\u2022|\*/g)
+      .map((item) => item.replace(/^[-•\s]+/, '').trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function extractSection(text: string, label: string): string[] {
+  if (!text) return [];
+  const regex = new RegExp(`${label}\\s*:?\\s*([\\s\\S]*?)(?:\\n\\s*\\n|\\n[A-Z][\\w\\s]+:|$)`, 'i');
+  const match = text.match(regex);
+  if (!match || !match[1]) return [];
+  return normalizeList(match[1]);
+}
+
+function buildSummaryFromObject(obj: any): OpenClawSummary {
+  const candidate = obj?.summary || obj?.report || obj?.result || obj || {};
+  const statusRaw =
+    candidate.status ||
+    candidate.result ||
+    (candidate.pass === true ? 'pass' : candidate.fail === true ? 'fail' : undefined) ||
+    (candidate.success === true ? 'pass' : undefined);
+  const status = statusRaw === 'pass' || statusRaw === 'fail' ? statusRaw : 'unknown';
+  return {
+    status,
+    missingInputs: normalizeList(
+      candidate.missing_inputs || candidate.missingInputs || candidate.inputs_missing || candidate.missing
+    ),
+    unclearSteps: normalizeList(
+      candidate.unclear_steps || candidate.unclearSteps || candidate.conflicts || candidate.issues
+    ),
+    simulatedActions: normalizeList(
+      candidate.simulated_actions || candidate.simulatedActions || candidate.simulated_external_actions
+    ),
+    filesWritten: normalizeList(candidate.files_written || candidate.filesWritten),
+    notes: normalizeList(candidate.notes || candidate.observations || candidate.summaryNotes),
+  };
+}
+
+function buildSummaryFromText(rawText: string): OpenClawSummary {
+  if (!rawText) {
+    return {
+      status: 'unknown',
+      missingInputs: [],
+      unclearSteps: [],
+      simulatedActions: [],
+      filesWritten: [],
+      notes: [],
+    };
+  }
+  const status =
+    /pass\b/i.test(rawText) && !/fail\b/i.test(rawText)
+      ? 'pass'
+      : /fail\b/i.test(rawText)
+      ? 'fail'
+      : 'unknown';
+  return {
+    status,
+    missingInputs: extractSection(rawText, 'missing inputs'),
+    unclearSteps: extractSection(rawText, 'unclear steps|conflicts|issues'),
+    simulatedActions: extractSection(rawText, 'simulated external actions|simulated actions'),
+    filesWritten: extractSection(rawText, 'files written|files created|files updated'),
+    notes: extractSection(rawText, 'notes|observations|summary'),
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -70,12 +154,15 @@ Goals:
 - Simulate any network requests or cloud infrastructure changes (no real side effects).
 - Do not perform destructive actions or change billing-related infrastructure.
 
-Return a concise report:
-- pass/fail
-- missing inputs
-- unclear steps or conflicts
-- simulated external actions
-- files written
+Return JSON with:
+{
+  "status": "pass" | "fail" | "unknown",
+  "missing_inputs": string[],
+  "unclear_steps": string[],
+  "simulated_actions": string[],
+  "files_written": string[],
+  "notes": string[]
+}
 `;
 
     const payload = {
@@ -122,6 +209,17 @@ Return a concise report:
       parsed = { raw: rawText };
     }
 
+    const summaryFromObject = buildSummaryFromObject(parsed);
+    const summaryFromText = buildSummaryFromText(rawText);
+    const summary: OpenClawSummary = {
+      status: summaryFromObject.status !== 'unknown' ? summaryFromObject.status : summaryFromText.status,
+      missingInputs: summaryFromObject.missingInputs.length ? summaryFromObject.missingInputs : summaryFromText.missingInputs,
+      unclearSteps: summaryFromObject.unclearSteps.length ? summaryFromObject.unclearSteps : summaryFromText.unclearSteps,
+      simulatedActions: summaryFromObject.simulatedActions.length ? summaryFromObject.simulatedActions : summaryFromText.simulatedActions,
+      filesWritten: summaryFromObject.filesWritten.length ? summaryFromObject.filesWritten : summaryFromText.filesWritten,
+      notes: summaryFromObject.notes.length ? summaryFromObject.notes : summaryFromText.notes,
+    };
+
     writeLog(logPath, 'OpenClaw execution completed.');
 
     return NextResponse.json({
@@ -130,6 +228,7 @@ Return a concise report:
       testDir,
       logPath,
       result: parsed,
+      summary,
     });
   } catch (error: any) {
     console.error('Engram agent test error:', error);
