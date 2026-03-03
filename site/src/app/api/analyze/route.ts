@@ -936,10 +936,12 @@ Guidelines:
     buildPrefillFromSkillDraft(parsed?.skillDraft),
     extractAgentPrefillFromSkill(content)
   );
+  const infrastructureFeedback = buildInfrastructureFeedback(content, parsed?.skillDraft, prefill);
 
   return {
     ...parsed,
     prefill,
+    infrastructureFeedback,
   };
 }
 
@@ -1076,4 +1078,114 @@ function mergePrefill(base: AgentPrefill, override: AgentPrefill): AgentPrefill 
     merged.skill = { ...(base.skill || {}), ...(override.skill || {}) };
   }
   return merged;
+}
+
+function isEmptyValue(value: any) {
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'string') return value.trim().length === 0;
+  return value === undefined || value === null;
+}
+
+function buildInfrastructureFeedback(content: string, skillDraft?: SkillDraft | null, prefill?: AgentPrefill) {
+  const parsed = matter(content || '');
+  const data = parsed.data || {};
+  const hasFrontmatter = Object.keys(data).length > 0;
+  const missingFrontmatter: string[] = [];
+
+  if (!hasFrontmatter) {
+    missingFrontmatter.push('Add a YAML frontmatter block');
+  } else {
+    const requiredKeys = [
+      { key: 'name', label: 'name' },
+      { key: 'domain', label: 'domain' },
+      { key: 'risk_level', label: 'risk_level' },
+      { key: 'triggers', label: 'triggers' },
+      { key: 'outcome', label: 'outcome' },
+      { key: 'allowed_systems', label: 'allowed_systems' },
+      { key: 'constraints', label: 'constraints' },
+      { key: 'required_inputs', label: 'required_inputs' },
+      { key: 'escalation_criteria', label: 'escalation_criteria' },
+      { key: 'stop_conditions', label: 'stop_conditions' },
+    ];
+    requiredKeys.forEach((item) => {
+      if (isEmptyValue((data as any)[item.key])) {
+        missingFrontmatter.push(item.label);
+      }
+    });
+  }
+
+  const profile = prefill?.agentProfile || {};
+  const skill = prefill?.skill || {};
+  const effective = {
+    domain: skillDraft?.domain || profile.domain,
+    outcome: skillDraft?.outcome || profile.outcome,
+    triggers: skillDraft?.triggers || profile.triggers,
+    requiredInputs: skillDraft?.requiredInputs || profile.requiredInputs,
+    constraints: skillDraft?.constraints || profile.constraints,
+    allowedSystems: skillDraft?.allowedSystems || profile.allowedSystems,
+    escalationCriteria: skillDraft?.escalationCriteria || profile.escalationCriteria,
+    stopConditions: skillDraft?.stopConditions || profile.stopConditions,
+    riskLevel: skillDraft?.riskLevel || profile.riskLevel,
+    subdomains: skillDraft?.subdomains || profile.subdomains,
+    triggerQuestions: skillDraft?.triggerQuestions || profile.triggerQuestions,
+  };
+
+  const missingFields: string[] = [];
+  if (isEmptyValue(effective.domain)) missingFields.push('Domain');
+  if (isEmptyValue(effective.subdomains)) missingFields.push('Subdomains');
+  if (isEmptyValue(effective.triggerQuestions)) missingFields.push('Trigger questions');
+  if (isEmptyValue(effective.outcome)) missingFields.push('Outcome');
+  if (isEmptyValue(effective.triggers)) missingFields.push('Triggers');
+  if (isEmptyValue(effective.requiredInputs)) missingFields.push('Required inputs');
+  if (isEmptyValue(effective.constraints)) missingFields.push('Constraints / no-go rules');
+  if (isEmptyValue(effective.allowedSystems)) missingFields.push('Allowed systems');
+  if (isEmptyValue(effective.escalationCriteria)) missingFields.push('Escalation criteria');
+  if (isEmptyValue(effective.stopConditions)) missingFields.push('Stop conditions');
+
+  const stepsCount =
+    (Array.isArray(skillDraft?.steps) ? skillDraft?.steps?.length : 0) ||
+    (Array.isArray(skill?.steps) ? skill.steps.length : 0);
+  const missingSteps = stepsCount === 0;
+  const weakSteps = !missingSteps && stepsCount < 3;
+
+  const suggestions: string[] = [];
+  if (!hasFrontmatter) {
+    suggestions.push('Add YAML frontmatter with at least name, domain, risk_level, triggers, and outcome.');
+  } else if (missingFrontmatter.length > 0) {
+    suggestions.push(`Fill YAML fields: ${missingFrontmatter.join(', ')}.`);
+  }
+  if (missingSteps) {
+    suggestions.push('Add step-by-step execution guidance (at least 3 steps).');
+  } else if (weakSteps) {
+    suggestions.push('Expand the skill with additional steps or decision points.');
+  }
+  if (missingFields.length > 0) {
+    suggestions.push('Complete missing profile fields to improve routing and safety.');
+  }
+  if (content.includes('knowledge/') || content.includes('utility') || content.toLowerCase().includes('utility-specific')) {
+    suggestions.push('Ensure utility-specific patterns are extracted into concepts/knowledge files.');
+  }
+
+  let score = 100;
+  if (!hasFrontmatter) score -= 15;
+  score -= Math.min(missingFrontmatter.length, 6) * 4;
+  score -= Math.min(missingFields.length, 8) * 6;
+  if (missingSteps) score -= 20;
+  if (weakSteps) score -= 10;
+  score = Math.max(0, Math.min(100, score));
+
+  const label =
+    score >= 85 ? 'Strong' :
+    score >= 70 ? 'Good' :
+    score >= 50 ? 'Needs work' :
+    'Weak';
+
+  return {
+    strengthScore: score,
+    strengthLabel: label,
+    missingFrontmatter,
+    missingFields,
+    missingSteps,
+    suggestions,
+  };
 }

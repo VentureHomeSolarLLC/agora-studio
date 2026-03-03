@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import yaml from 'js-yaml';
 import { EngramFormData } from '@/types/engram';
 import { SkillBuilder } from '@/components/engram-builder/SkillBuilder';
 import { ConceptsBuilder } from '@/components/engram-builder/ConceptsBuilder';
@@ -45,6 +46,66 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const isAgentImport = data.contentType === 'agent' && data.agentImportMode === 'monolith';
   const AUTO_INCLUDE_CONFIDENCE = 0.7;
   const today = new Date().toISOString().split('T')[0];
+  const infrastructure = analysis?.infrastructureFeedback;
+
+  const slugify = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50);
+
+  const skillPreview = useMemo(() => {
+    if (!isAgentImport) return '';
+    const engramId = slugify(data.title || 'engram');
+    const frontmatter = {
+      engram_id: engramId,
+      type: 'skill',
+      mode: data.agentProfile?.skillMode || 'procedure',
+      skill_type: data.agentProfile?.skillType || (data.agentProfile?.skillMode === 'knowledge' ? 'knowledge' : 'procedural'),
+      domain: data.agentProfile?.domain || '',
+      subdomains: data.agentProfile?.subdomains || [],
+      trigger_questions: data.agentProfile?.triggerQuestions || [],
+      outcome: data.agentProfile?.outcome || '',
+      risk_level: data.agentProfile?.riskLevel || 'medium',
+      triggers: data.agentProfile?.triggers || [],
+      required_inputs: data.agentProfile?.requiredInputs || [],
+      constraints: data.agentProfile?.constraints || [],
+      allowed_systems: data.agentProfile?.allowedSystems || [],
+      escalation_criteria: data.agentProfile?.escalationCriteria || [],
+      stop_conditions: data.agentProfile?.stopConditions || [],
+      difficulty: data.skill?.difficulty || 'intermediate',
+      time_estimate: data.skill?.time_estimate || '',
+      prerequisites: data.skill?.prerequisites || [],
+    };
+    const parts = [
+      '---',
+      yaml.dump(frontmatter).trim(),
+      '---',
+      `# ${data.title || 'Untitled Skill'}`,
+    ];
+    if (data.description) {
+      parts.push('', data.description.trim());
+    }
+    const steps = data.skill?.steps || [];
+    if (steps.length > 0) {
+      parts.push('', '## Steps');
+      steps.forEach((step, idx) => {
+        const stepTitle = step.title || `Step ${idx + 1}`;
+        parts.push('', `### ${stepTitle}`);
+        if (step.content) {
+          parts.push(step.content);
+        }
+      });
+    }
+    return parts.join('\n');
+  }, [
+    isAgentImport,
+    data.title,
+    data.description,
+    data.agentProfile,
+    data.skill,
+  ]);
 
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
@@ -519,19 +580,75 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       )}
 
       {isAgentImport && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium text-gray-900">Reconstructed Skill Steps</h3>
-            <span className="text-xs text-gray-500">Edit anything before publishing</span>
+        <>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-gray-900">Engram Readiness</h3>
+              {typeof infrastructure?.strengthScore === 'number' && (
+                <span className="text-xs font-medium text-gray-600">
+                  {infrastructure.strengthLabel} · {infrastructure.strengthScore}/100
+                </span>
+              )}
+            </div>
+            {typeof infrastructure?.strengthScore === 'number' && (
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-3 overflow-hidden">
+                <div
+                  className="bg-emerald-600 h-2 rounded-full"
+                  style={{ width: `${infrastructure.strengthScore}%` }}
+                />
+              </div>
+            )}
+            {infrastructure?.missingFrontmatter?.length > 0 && (
+              <div className="text-xs text-gray-700 mb-2">
+                <p className="font-semibold text-gray-800">Missing YAML pieces:</p>
+                <p>{infrastructure.missingFrontmatter.join(', ')}</p>
+              </div>
+            )}
+            {infrastructure?.missingFields?.length > 0 && (
+              <div className="text-xs text-gray-700 mb-2">
+                <p className="font-semibold text-gray-800">Missing skill context:</p>
+                <p>{infrastructure.missingFields.join(', ')}</p>
+              </div>
+            )}
+            {infrastructure?.suggestions?.length > 0 && (
+              <div className="text-xs text-gray-700">
+                <p className="font-semibold text-gray-800">Suggested improvements:</p>
+                <ul className="mt-1 space-y-1">
+                  {infrastructure.suggestions.map((item: string, idx: number) => (
+                    <li key={`infra-${idx}`}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-          <p className="text-xs text-gray-500 mb-3">
-            We rebuilt steps from the uploaded SKILL.md file. Adjust them to match the exact workflow.
-          </p>
-          <SkillBuilder
-            data={data.skill}
-            onChange={(next) => onChange({ skill: next })}
-          />
-        </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-gray-900">Reconstructed Skill Steps</h3>
+              <span className="text-xs text-gray-500">Edit anything before publishing</span>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              We rebuilt steps from the uploaded SKILL.md file. Adjust them to match the exact workflow.
+            </p>
+            <SkillBuilder
+              data={data.skill}
+              onChange={(next) => onChange({ skill: next })}
+            />
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-gray-900">Live SKILL.md Preview</h3>
+              <span className="text-xs text-gray-500">Updates as you edit</span>
+            </div>
+            <textarea
+              value={skillPreview}
+              readOnly
+              rows={14}
+              className="w-full p-3 border border-gray-200 rounded text-xs font-mono bg-gray-50 focus:outline-none"
+            />
+          </div>
+        </>
       )}
 
       {renderDuplicateCheck()}
