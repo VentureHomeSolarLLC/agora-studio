@@ -173,6 +173,178 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
     };
   }, [isAgentImport, infrastructure, data.agentProfile?.domain, data.agentProfile?.subdomains]);
 
+  const frontmatterFields = useMemo(() => {
+    if (!isAgentImport) return [];
+    const isKnowledge = data.agentProfile?.skillMode === 'knowledge';
+    return [
+      {
+        key: 'domain',
+        label: 'Domain',
+        type: 'text',
+        value: data.agentProfile?.domain || '',
+        placeholder: 'e.g., operations',
+        onChange: (value: string) => onChange({ agentProfile: { ...data.agentProfile, domain: value } }),
+        required: true,
+      },
+      {
+        key: 'subdomains',
+        label: 'Subdomains',
+        type: 'textarea',
+        value: (data.agentProfile?.subdomains || []).join('\n'),
+        placeholder: 'energy_savings\ninterconnection',
+        onChange: (value: string) =>
+          onChange({
+            agentProfile: {
+              ...data.agentProfile,
+              subdomains: value
+                .split(/[\n,;]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            },
+          }),
+        required: true,
+      },
+      {
+        key: 'triggers',
+        label: 'Triggers',
+        type: 'text',
+        value: (data.agentProfile?.triggers || []).join(', '),
+        placeholder: 'nightly IC cron job, TaskRay task ready',
+        onChange: (value: string) =>
+          onChange({
+            agentProfile: {
+              ...data.agentProfile,
+              triggers: value
+                .split(/[,;\n]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            },
+          }),
+        required: true,
+      },
+      {
+        key: 'outcome',
+        label: 'Outcome',
+        type: 'textarea',
+        value: data.agentProfile?.outcome || '',
+        placeholder: 'Describe what success looks like...',
+        onChange: (value: string) =>
+          onChange({ agentProfile: { ...data.agentProfile, outcome: value } }),
+        required: true,
+      },
+      {
+        key: 'riskLevel',
+        label: 'Risk Level',
+        type: 'select',
+        value: data.agentProfile?.riskLevel || 'medium',
+        options: ['low', 'medium', 'high'],
+        onChange: (value: string) =>
+          onChange({ agentProfile: { ...data.agentProfile, riskLevel: value as any } }),
+        required: true,
+      },
+      {
+        key: 'requiredInputs',
+        label: 'Required Inputs',
+        type: 'text',
+        value: (data.agentProfile?.requiredInputs || []).join(', '),
+        placeholder: 'utility account, panel photos',
+        onChange: (value: string) =>
+          onChange({
+            agentProfile: {
+              ...data.agentProfile,
+              requiredInputs: value
+                .split(/[,;\n]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            },
+          }),
+        required: !isKnowledge,
+      },
+      {
+        key: 'constraints',
+        label: 'Constraints / No-Go Rules',
+        type: 'textarea',
+        value: (data.agentProfile?.constraints || []).join('\n'),
+        placeholder: 'never complete predecessor tasks',
+        onChange: (value: string) =>
+          onChange({
+            agentProfile: {
+              ...data.agentProfile,
+              constraints: value
+                .split(/[\n,;]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            },
+          }),
+        required: !isKnowledge,
+      },
+      {
+        key: 'allowedSystems',
+        label: 'Allowed Systems',
+        type: 'text',
+        value: (data.agentProfile?.allowedSystems || []).join(', '),
+        placeholder: 'Microsoft Graph, Salesforce',
+        onChange: (value: string) =>
+          onChange({
+            agentProfile: {
+              ...data.agentProfile,
+              allowedSystems: value
+                .split(/[,;\n]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            },
+          }),
+        required: !isKnowledge,
+      },
+      {
+        key: 'escalationCriteria',
+        label: 'Escalation Criteria',
+        type: 'textarea',
+        value: (data.agentProfile?.escalationCriteria || []).join('\n'),
+        placeholder: 'escalate if missing required docs',
+        onChange: (value: string) =>
+          onChange({
+            agentProfile: {
+              ...data.agentProfile,
+              escalationCriteria: value
+                .split(/[\n,;]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            },
+          }),
+        required: !isKnowledge,
+      },
+      {
+        key: 'stopConditions',
+        label: 'Stop Conditions',
+        type: 'textarea',
+        value: (data.agentProfile?.stopConditions || []).join('\n'),
+        placeholder: 'missing required inputs',
+        onChange: (value: string) =>
+          onChange({
+            agentProfile: {
+              ...data.agentProfile,
+              stopConditions: value
+                .split(/[\n,;]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            },
+          }),
+        required: !isKnowledge,
+      },
+    ];
+  }, [isAgentImport, data.agentProfile, onChange]);
+
+  const missingFrontmatterFields = useMemo(() => {
+    if (!frontmatterFields.length) return [];
+    const isEmpty = (value: any) => {
+      if (Array.isArray(value)) return value.length === 0;
+      if (typeof value === 'string') return value.trim().length === 0;
+      return value === undefined || value === null;
+    };
+    return frontmatterFields.filter((field) => field.required && isEmpty(field.value));
+  }, [frontmatterFields]);
+
   useEffect(() => {
     if (analysis?.beforeAfter?.after) {
       const normalized =
@@ -799,6 +971,52 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                         {item.data.status.label}
                       </span>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {missingFrontmatterFields.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">Complete Frontmatter</h3>
+                <span className="text-xs text-gray-500">Fill required fields below</span>
+              </div>
+              <div className="space-y-3">
+                {missingFrontmatterFields.map((field) => (
+                  <div key={field.key}>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{field.label}</label>
+                    {field.type === 'textarea' ? (
+                      <textarea
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        placeholder={field.placeholder}
+                        rows={2}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                      />
+                    ) : field.type === 'select' ? (
+                      <select
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                      >
+                        {field.options?.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        placeholder={field.placeholder}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-[#F7FF96] focus:outline-none focus:ring-2 focus:ring-[#F7FF96]/20"
+                      />
+                    )}
+                    {field.key === 'subdomains' && (
+                      <p className="text-[11px] text-gray-400 mt-1">One per line or comma-separated.</p>
+                    )}
                   </div>
                 ))}
               </div>

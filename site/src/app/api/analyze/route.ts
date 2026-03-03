@@ -27,19 +27,23 @@ export async function POST(request: NextRequest) {
         analysis = await analyzeCustomerContent(content, title);
         analysis = enrichAgentTrainingPotential(analysis);
         analysis = attachExtractionPreviews(analysis, 'customer', title, content);
+        analysis = appendProcessDependencyWarnings(analysis, content);
         break;
       case 'internal':
         analysis = await analyzeInternalContent(content, title);
         analysis = enrichAgentTrainingPotential(analysis);
         analysis = attachExtractionPreviews(analysis, 'internal', title, content);
+        analysis = appendProcessDependencyWarnings(analysis, content);
         break;
       case 'agent':
         if (importMode === 'monolith') {
           analysis = await analyzeAgentImport(content, title);
           analysis = enrichAgentTrainingPotential(analysis);
           analysis = attachExtractionPreviews(analysis, 'agent', title, content);
+          analysis = appendProcessDependencyWarnings(analysis, content);
         } else {
           analysis = await analyzeAgentInstructions(content, title, agentMode);
+          analysis = appendProcessDependencyWarnings(analysis, content);
         }
         break;
       default:
@@ -741,6 +745,33 @@ function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
     console.warn('Failed to parse AI JSON response. Returning fallback.');
     return fallback;
   }
+}
+
+function appendProcessDependencyWarnings(analysis: any, content: string) {
+  const warnings = findHumanDependencyWarnings(content);
+  if (!warnings.length) return analysis;
+  const existing = Array.isArray(analysis?.warnings) ? analysis.warnings : [];
+  const merged = Array.from(new Set([...existing, ...warnings]));
+  return { ...analysis, warnings: merged };
+}
+
+function findHumanDependencyWarnings(content: string): string[] {
+  if (!content) return [];
+  const warnings: string[] = [];
+  const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+  const actionRegex = /\b(report to|notify|ping|ask|escalate to|send to|message|slack|email)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/g;
+  let match: RegExpExecArray | null;
+
+  const emails = content.match(emailRegex) || [];
+  emails.forEach((email) => {
+    warnings.push(`Human dependency: "${email}"`);
+  });
+
+  while ((match = actionRegex.exec(content))) {
+    warnings.push(`Human dependency: "${match[0].trim()}"`);
+  }
+
+  return Array.from(new Set(warnings)).slice(0, 8);
 }
 
 async function analyzeCustomerContent(content: string, title: string) {
