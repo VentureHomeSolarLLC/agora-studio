@@ -1198,23 +1198,35 @@ function buildInfrastructureFeedback(content: string, skillDraft?: SkillDraft | 
   const parsed = matter(content || '');
   const data = parsed.data || {};
   const hasFrontmatter = Object.keys(data).length > 0;
+  const skillMode =
+    skillDraft?.type === 'knowledge' || prefill?.agentProfile?.skillMode === 'knowledge'
+      ? 'knowledge'
+      : 'procedure';
   const missingFrontmatter: string[] = [];
 
   if (!hasFrontmatter) {
     missingFrontmatter.push('Add a YAML frontmatter block');
   } else {
-    const requiredKeys = [
-      { key: 'name', label: 'name' },
-      { key: 'domain', label: 'domain' },
-      { key: 'risk_level', label: 'risk_level' },
-      { key: 'triggers', label: 'triggers' },
-      { key: 'outcome', label: 'outcome' },
-      { key: 'allowed_systems', label: 'allowed_systems' },
-      { key: 'constraints', label: 'constraints' },
-      { key: 'required_inputs', label: 'required_inputs' },
-      { key: 'escalation_criteria', label: 'escalation_criteria' },
-      { key: 'stop_conditions', label: 'stop_conditions' },
-    ];
+    const requiredKeys = skillMode === 'knowledge'
+      ? [
+          { key: 'name', label: 'name' },
+          { key: 'domain', label: 'domain' },
+          { key: 'risk_level', label: 'risk_level' },
+          { key: 'triggers', label: 'triggers' },
+          { key: 'outcome', label: 'outcome' },
+        ]
+      : [
+          { key: 'name', label: 'name' },
+          { key: 'domain', label: 'domain' },
+          { key: 'risk_level', label: 'risk_level' },
+          { key: 'triggers', label: 'triggers' },
+          { key: 'outcome', label: 'outcome' },
+          { key: 'allowed_systems', label: 'allowed_systems' },
+          { key: 'constraints', label: 'constraints' },
+          { key: 'required_inputs', label: 'required_inputs' },
+          { key: 'escalation_criteria', label: 'escalation_criteria' },
+          { key: 'stop_conditions', label: 'stop_conditions' },
+        ];
     requiredKeys.forEach((item) => {
       if (isEmptyValue((data as any)[item.key])) {
         missingFrontmatter.push(item.label);
@@ -1242,17 +1254,19 @@ function buildInfrastructureFeedback(content: string, skillDraft?: SkillDraft | 
   if (isEmptyValue(effective.subdomains)) missingFields.push('Subdomains');
   if (isEmptyValue(effective.outcome)) missingFields.push('Outcome');
   if (isEmptyValue(effective.triggers)) missingFields.push('Triggers');
-  if (isEmptyValue(effective.requiredInputs)) missingFields.push('Required inputs');
-  if (isEmptyValue(effective.constraints)) missingFields.push('Constraints / no-go rules');
-  if (isEmptyValue(effective.allowedSystems)) missingFields.push('Allowed systems');
-  if (isEmptyValue(effective.escalationCriteria)) missingFields.push('Escalation criteria');
-  if (isEmptyValue(effective.stopConditions)) missingFields.push('Stop conditions');
+  if (skillMode === 'procedure') {
+    if (isEmptyValue(effective.requiredInputs)) missingFields.push('Required inputs');
+    if (isEmptyValue(effective.constraints)) missingFields.push('Constraints / no-go rules');
+    if (isEmptyValue(effective.allowedSystems)) missingFields.push('Allowed systems');
+    if (isEmptyValue(effective.escalationCriteria)) missingFields.push('Escalation criteria');
+    if (isEmptyValue(effective.stopConditions)) missingFields.push('Stop conditions');
+  }
 
   const stepsCount =
     (Array.isArray(skillDraft?.steps) ? skillDraft?.steps?.length : 0) ||
     (Array.isArray(skill?.steps) ? skill.steps.length : 0);
-  const missingSteps = stepsCount === 0;
-  const weakSteps = !missingSteps && stepsCount < 3;
+  const missingSteps = skillMode === 'procedure' ? stepsCount === 0 : false;
+  const weakSteps = skillMode === 'procedure' && !missingSteps && stepsCount < 3;
 
   const suggestions: string[] = [];
   if (!hasFrontmatter) {
@@ -1287,8 +1301,11 @@ function buildInfrastructureFeedback(content: string, skillDraft?: SkillDraft | 
     'Weak';
 
   return {
+    skillMode,
     strengthScore: score,
     strengthLabel: label,
+    suggestedDomain: skillDraft?.domain || profile.domain || '',
+    suggestedSubdomains: skillDraft?.subdomains || profile.subdomains || [],
     missingFrontmatter,
     missingFields,
     missingSteps,

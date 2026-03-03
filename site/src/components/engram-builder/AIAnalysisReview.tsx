@@ -626,12 +626,28 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 </span>
               )}
             </div>
+            {infrastructure?.skillMode && (
+              <p className="text-xs text-gray-500 mb-2">
+                Mode detected: <span className="font-medium text-gray-700">{infrastructure.skillMode === 'knowledge' ? 'Knowledge-only' : 'Procedure'}</span>
+              </p>
+            )}
             {typeof infrastructure?.strengthScore === 'number' && (
               <div className="w-full bg-gray-200 rounded-full h-2 mb-3 overflow-hidden">
                 <div
                   className="bg-emerald-600 h-2 rounded-full"
                   style={{ width: `${infrastructure.strengthScore}%` }}
                 />
+              </div>
+            )}
+            {(infrastructure?.suggestedDomain || (infrastructure?.suggestedSubdomains || []).length > 0) && (
+              <div className="text-xs text-gray-700 mb-3">
+                <p className="font-semibold text-gray-800">Suggested domain/subdomains</p>
+                {infrastructure?.suggestedDomain && (
+                  <p>Domain: <span className="font-medium text-gray-900">{infrastructure.suggestedDomain}</span></p>
+                )}
+                {(infrastructure?.suggestedSubdomains || []).length > 0 && (
+                  <p>Subdomains: <span className="font-medium text-gray-900">{infrastructure.suggestedSubdomains.join(', ')}</span></p>
+                )}
               </div>
             )}
             {infrastructure?.missingFields?.length > 0 && (
