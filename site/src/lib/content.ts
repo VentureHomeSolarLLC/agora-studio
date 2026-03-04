@@ -267,6 +267,7 @@ export function getArticlesByCategory(category: string): Article[] {
     "maintenance": ["panel", "cleaning", "maintenance", "warranty", "equipment"],
     "troubleshooting": ["troubleshoot", "issue", "problem", "error"],
     "installation": ["install", "pto", "permission", "interconnection"],
+    "monitoring": ["monitor", "monitoring", "production", "performance", "app", "gateway", "envoy"],
   };
   
   const tags = categoryMap[category] || [category];

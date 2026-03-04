@@ -10,6 +10,8 @@ type ExtractionConcept = {
   content: string;
   forEngram?: string;
   mergeStrategy?: 'append' | 'replace';
+  confidence?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
 };
 type ExtractionLesson = {
   title: string;
@@ -17,6 +19,8 @@ type ExtractionLesson = {
   solution: string;
   forEngram?: string;
   mergeStrategy?: 'append' | 'replace';
+  confidence?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
 };
 type EngramGroup = { engramTitle: string; concepts: ExtractionConcept[]; lessons: ExtractionLesson[] };
 type IndexEntry = { title: string; fileName: string };
