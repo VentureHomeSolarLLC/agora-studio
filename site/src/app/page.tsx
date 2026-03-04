@@ -543,16 +543,13 @@ function CategoryCard({ href, icon, title, description, color }: {
   );
 }
 
-function ArticleLink({ concept }: { concept: { slug: string; title: string; excerpt?: string } }) {
+function ArticleLink({ concept }: { concept: { slug: string; title: string } }) {
   return (
     <Link
       href={`/article/${concept.slug}`}
       className="block bg-[#F3F3EA]/70 p-3 rounded-lg border border-[#B1C3BD]/30 hover:shadow-md transition-shadow"
     >
       <h4 className="font-medium text-[#231F20] mb-1">{concept.title}</h4>
-      {concept.excerpt && (
-        <p className="text-sm text-[#231F20]/60 line-clamp-1">{concept.excerpt}</p>
-      )}
     </Link>
   );
 }
