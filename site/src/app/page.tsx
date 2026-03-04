@@ -26,24 +26,21 @@ export default async function Home() {
   const troubleshootingConcepts = getArticlesByCategory("troubleshooting").slice(0, 4);
 
   const publicTopSearches = [
-    "monitoring app login",
-    "system not producing",
-    "solar production drop",
-    "utility bill after solar",
-    "net metering explained",
-    "inverter lights meaning",
-    "battery backup during outage",
-    "SREC payout schedule",
+    { label: "Monitoring & performance", href: "/browse?category=monitoring" },
+    { label: "Utility bill changes", href: "/browse?category=billing" },
+    { label: "Net metering credits", href: "/browse?q=net%20metering" },
+    { label: "Production seems low", href: "/browse?q=production%20low" },
+    { label: "Battery backup tips", href: "/browse?q=battery%20outage" },
+    { label: "SRECs & incentives", href: "/browse?q=srecs" },
+    { label: "Monitoring setup", href: "/browse?q=monitoring" },
   ];
   const internalTopSearches = [
-    "interconnection submission",
-    "PTO status update",
-    "utility forms",
-    "financing approval steps",
-    "permit inspection checklist",
-    "service troubleshooting",
-    "TaskRay update",
-    "Salesforce opportunity fields",
+    { label: "Utility guide", href: "/browse?q=utility%20guide" },
+    { label: "Awaiting PTO", href: "/browse?q=awaiting%20pto" },
+    { label: "Net metering", href: "/browse?q=net%20metering" },
+    { label: "Production low", href: "/browse?q=production%20low" },
+    { label: "Battery FAQ", href: "/browse?q=battery%20faq" },
+    { label: "Monitoring app", href: "/browse?q=monitoring" },
   ];
   const topSearches = isInternal ? internalTopSearches : publicTopSearches;
 
@@ -357,16 +354,16 @@ function ArticleLink({ concept }: { concept: { slug: string; title: string; exce
   );
 }
 
-function TopSearches({ items }: { items: string[] }) {
+function TopSearches({ items }: { items: { label: string; href: string }[] }) {
   return (
     <>
       {items.map((term) => (
         <Link
-          key={term}
-          href={`/browse?q=${encodeURIComponent(term)}`}
+          key={term.label}
+          href={term.href}
           className="px-3 py-1 rounded-full bg-white/70 border border-[#B1C3BD]/30 hover:border-[#231F20]/40 hover:text-[#231F20] transition-colors"
         >
-          {term}
+          {term.label}
         </Link>
       ))}
     </>

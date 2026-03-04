@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { LogOut, Lock } from "lucide-react";
@@ -7,6 +8,12 @@ import Image from "next/image";
 
 export function Navigation() {
   const { data: session, status } = useSession();
+  const [isInternalHost, setIsInternalHost] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsInternalHost(window.location.host.includes("internal.help.venturehome.com"));
+  }, []);
 
   return (
     <nav className="bg-[#231F20] text-[#F3F3EA] sticky top-0 z-50">
@@ -43,42 +50,53 @@ export function Navigation() {
               <div className="w-8 h-8 bg-[#B1C3BD] rounded-full animate-pulse" />
             ) : session ? (
               <>
-                <Link
-                  href="/admin/engrams/new"
-                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
-                >
-                  Create
-                </Link>
-                <Link
-                  href="/engrams"
-                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
-                >
-                  Engrams
-                </Link>
-                <Link
-                  href="/search"
-                  className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
-                >
-                  Search
-                </Link>
-                <Link
-                  href="/admin/engrams/map"
-                  className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
-                >
-                  Map
-                </Link>
-                <Link
-                  href="/admin/builder"
-                  className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
-                >
-                  Wiki Builder
-                </Link>
-                <Link
-                  href="/browse"
-                  className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
-                >
-                  Browse
-                </Link>
+                {isInternalHost ? (
+                  <>
+                    <Link
+                      href="/admin/engrams/new"
+                      className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                    >
+                      Create
+                    </Link>
+                    <Link
+                      href="/engrams"
+                      className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                    >
+                      Engrams
+                    </Link>
+                    <Link
+                      href="/search"
+                      className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                    >
+                      Search
+                    </Link>
+                    <Link
+                      href="/admin/engrams/map"
+                      className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                    >
+                      Map
+                    </Link>
+                    <Link
+                      href="/admin/builder"
+                      className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                    >
+                      Wiki Builder
+                    </Link>
+                    <Link
+                      href="/browse"
+                      className="hidden md:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                    >
+                      Browse
+                    </Link>
+                  </>
+                ) : (
+                  <Link
+                    href="/browse"
+                    className="hidden sm:flex items-center gap-2 text-[#7AEFB1] hover:text-[#F7FF96] transition-colors text-sm"
+                  >
+                    Browse
+                  </Link>
+                )}
                 <button
                   onClick={() => signOut()}
                   className="flex items-center gap-2 text-[#F3F3EA] hover:text-[#F7FF96] transition-colors text-sm"

@@ -23,6 +23,7 @@ export default async function BrowsePage({ searchParams }: Props) {
       maintenance: "Maintenance & Care",
       troubleshooting: "Troubleshooting",
       installation: "Installation Process",
+      monitoring: "Monitoring & Performance",
     };
     title = categoryTitles[category] || category;
   }
