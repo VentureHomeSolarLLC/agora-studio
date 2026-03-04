@@ -35,6 +35,11 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
       .substring(0, 50);
   const datePrefix = new Date().toISOString().split('T')[0];
   const knowledgeRoot = 'knowledge';
+  const knowledgeDomainLabel =
+    typeof data.aiAnalysis?.infrastructureFeedback?.suggestedDomain === 'string'
+      ? data.aiAnalysis?.infrastructureFeedback?.suggestedDomain.trim()
+      : '';
+  const knowledgeDomainSlug = knowledgeDomainLabel ? toSlug(knowledgeDomainLabel) : '';
   const treePaths: string[] = [];
   const addTreePath = (path: string) => {
     if (!path) return;
@@ -64,12 +69,13 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
 
     Object.entries(grouped).forEach(([slug, group]) => {
       if (contentType === 'customer' || contentType === 'internal') {
-        addTreePath(`${knowledgeRoot}/${slug}/_index.md`);
+        const domainSlug = knowledgeDomainSlug || slug;
+        addTreePath(`${knowledgeRoot}/${domainSlug}/_index.md`);
         group.concepts.forEach((title) => {
-          addTreePath(`${knowledgeRoot}/${slug}/${toSlug(title)}.md`);
+          addTreePath(`${knowledgeRoot}/${domainSlug}/${toSlug(title)}.md`);
         });
         group.lessons.forEach((title) => {
-          addTreePath(`${knowledgeRoot}/${slug}/${datePrefix}-${toSlug(title)}.md`);
+          addTreePath(`${knowledgeRoot}/${domainSlug}/${datePrefix}-${toSlug(title)}.md`);
         });
       } else {
         addTreePath(`engrams-v2/${slug}/_index.md`);
@@ -108,7 +114,8 @@ export function ReviewAndPublish({ data, onChange, onPublish, isSubmitting, cont
       if (group.concepts > 0) parts.push(`${group.concepts} concept${group.concepts > 1 ? 's' : ''}`);
       if (group.lessons > 0) parts.push(`${group.lessons} lesson${group.lessons > 1 ? 's' : ''}`);
       if (contentType === 'customer' || contentType === 'internal') {
-        autoFiles.push(`${group.label} → ${knowledgeRoot}/${slug} (${parts.join(', ')})`);
+        const domainSlug = knowledgeDomainSlug || slug;
+        autoFiles.push(`${group.label} → ${knowledgeRoot}/${domainSlug} (${parts.join(', ')})`);
       } else {
         autoFiles.push(`${group.label} → engrams-v2/${slug} (${parts.join(', ')})`);
       }

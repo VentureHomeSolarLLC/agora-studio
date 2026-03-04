@@ -48,6 +48,14 @@ export function transformToEngram(formData: EngramFormData) {
   const files: Record<string, string> = {};
   const requiredIntegrations = getRequiredIntegrationNames(formData);
   const knowledgeRoot = 'knowledge';
+  const knowledgeSuggestions = formData.aiAnalysis?.infrastructureFeedback || {};
+  const suggestedDomain =
+    typeof knowledgeSuggestions?.suggestedDomain === 'string'
+      ? knowledgeSuggestions.suggestedDomain.trim()
+      : '';
+  const suggestedSubdomains = Array.isArray(knowledgeSuggestions?.suggestedSubdomains)
+    ? knowledgeSuggestions.suggestedSubdomains.filter((item: any) => String(item).trim().length > 0)
+    : [];
 
   if (formData.contentType === 'agent' && formData.agentImportMode === 'monolith') {
     const extractedConcepts = formData.agentExtraction?.concepts?.filter((c) => c.include) || [];
@@ -200,12 +208,15 @@ export function transformToEngram(formData: EngramFormData) {
     }
 
     for (const [domainId, group] of grouped.entries()) {
-      const domainDir = path.join(repoRoot, knowledgeRoot, domainId);
+      const domainLabel = suggestedDomain || group.engramTitle;
+      const domainSlug = slugify(domainLabel || domainId);
+      const domainDir = path.join(repoRoot, knowledgeRoot, domainSlug);
       const domainIndexPath = path.join(domainDir, '_index.md');
-      if (!fs.existsSync(domainIndexPath)) {
-        files[`${knowledgeRoot}/${domainId}/_index.md`] = generateKnowledgeDomainIndexMd({
-          domainId,
-          title: group.engramTitle,
+      const domainIndexKey = `${knowledgeRoot}/${domainSlug}/_index.md`;
+      if (!fs.existsSync(domainIndexPath) && !files[domainIndexKey]) {
+        files[domainIndexKey] = generateKnowledgeDomainIndexMd({
+          domainId: domainSlug,
+          title: domainLabel ? humanizeTitle(domainLabel) : group.engramTitle,
           visibility: formData.contentType === 'customer' ? 'external' : 'internal',
         });
       }
@@ -217,7 +228,7 @@ export function transformToEngram(formData: EngramFormData) {
           baseSlug,
           '.md',
           files,
-          `${knowledgeRoot}/${domainId}/`
+          `${knowledgeRoot}/${domainSlug}/`
         );
         const note: KnowledgeNote = {
           title: concept.title,
@@ -229,12 +240,12 @@ export function transformToEngram(formData: EngramFormData) {
           riskLevel: concept.riskLevel,
           forEngram: concept.forEngram,
         };
-        files[`${knowledgeRoot}/${domainId}/${fileName}`] = generateKnowledgeNoteMd({
+        files[`${knowledgeRoot}/${domainSlug}/${fileName}`] = generateKnowledgeNoteMd({
           note,
-          knowledgeId: `${domainId}-${fileName.replace(/\.md$/, '')}`,
+          knowledgeId: `${domainSlug}-${fileName.replace(/\.md$/, '')}`,
           visibility: formData.contentType === 'customer' ? 'external' : 'internal',
-          domainId,
-          subdomains: [],
+          domainId: domainSlug,
+          subdomains: buildKnowledgeSubdomains(concept.forEngram, suggestedDomain, suggestedSubdomains, domainLabel),
           tags: formData.tags || [],
           audience: formData.contentType === 'customer' ? ['customer'] : ['internal'],
         });
@@ -248,7 +259,7 @@ export function transformToEngram(formData: EngramFormData) {
           baseSlug,
           '.md',
           files,
-          `${knowledgeRoot}/${domainId}/`
+          `${knowledgeRoot}/${domainSlug}/`
         );
         const note: KnowledgeNote = {
           title: lesson.title,
@@ -260,12 +271,12 @@ export function transformToEngram(formData: EngramFormData) {
           riskLevel: lesson.riskLevel,
           forEngram: lesson.forEngram,
         };
-        files[`${knowledgeRoot}/${domainId}/${fileName}`] = generateKnowledgeNoteMd({
+        files[`${knowledgeRoot}/${domainSlug}/${fileName}`] = generateKnowledgeNoteMd({
           note,
-          knowledgeId: `${domainId}-${fileName.replace(/\.md$/, '')}`,
+          knowledgeId: `${domainSlug}-${fileName.replace(/\.md$/, '')}`,
           visibility: formData.contentType === 'customer' ? 'external' : 'internal',
-          domainId,
-          subdomains: [],
+          domainId: domainSlug,
+          subdomains: buildKnowledgeSubdomains(lesson.forEngram, suggestedDomain, suggestedSubdomains, domainLabel),
           tags: formData.tags || [],
           audience: formData.contentType === 'customer' ? ['customer'] : ['internal'],
         });
@@ -432,6 +443,22 @@ function summarizeKnowledge(content: string): string {
   if (!content) return '';
   const stripped = content.replace(/\s+/g, ' ').trim();
   return stripped.split(/[.!?]/)[0]?.trim() || stripped.slice(0, 140);
+}
+
+function buildKnowledgeSubdomains(
+  forEngram: string | undefined,
+  suggestedDomain: string,
+  suggestedSubdomains: string[],
+  domainLabel: string
+): string[] {
+  const extra =
+    forEngram && suggestedDomain && slugify(forEngram) !== slugify(domainLabel)
+      ? [forEngram]
+      : [];
+  const combined = [...suggestedSubdomains, ...extra]
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+  return Array.from(new Set(combined));
 }
 
 function mapConfidence(confidence?: number): 'low' | 'medium' | 'high' {

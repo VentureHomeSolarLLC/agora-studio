@@ -45,6 +45,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
   const isKnowledgeOnly = data.agentProfile?.skillMode === 'knowledge';
   const isAgentWizard = data.contentType === 'agent';
   const isAgentImport = isAgentWizard && data.agentImportMode === 'monolith';
+  const isKnowledgeExtraction = data.contentType === 'customer' || data.contentType === 'internal';
   const AUTO_INCLUDE_CONFIDENCE = 0.7;
   const today = new Date().toISOString().split('T')[0];
   const infrastructure = analysis?.infrastructureFeedback;
@@ -66,6 +67,80 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-')
       .substring(0, 50);
+
+  const suggestedDomain =
+    typeof infrastructure?.suggestedDomain === 'string' && infrastructure.suggestedDomain.trim()
+      ? infrastructure.suggestedDomain.trim()
+      : '';
+  const defaultKnowledgeDomain = data.title || 'general';
+  const resolveKnowledgeDomainLabel = (forEngram?: string) => {
+    if (suggestedDomain) return suggestedDomain;
+    const trimmed = (forEngram || '').trim();
+    return trimmed || defaultKnowledgeDomain;
+  };
+  const resolveKnowledgeDomainSlug = (forEngram?: string) =>
+    slugify(resolveKnowledgeDomainLabel(forEngram) || 'general');
+  const knowledgeSubdomains = Array.isArray(infrastructure?.suggestedSubdomains)
+    ? infrastructure.suggestedSubdomains.filter((item: any) => String(item).trim().length > 0)
+    : [];
+  const mapKnowledgeConfidence = (confidence?: number) => {
+    if (typeof confidence !== 'number') return 'medium';
+    if (confidence >= 0.75) return 'high';
+    if (confidence >= 0.4) return 'medium';
+    return 'low';
+  };
+  const summarizeKnowledge = (text: string) => {
+    if (!text) return '';
+    const stripped = text.replace(/\s+/g, ' ').trim();
+    return stripped.split(/[.!?]/)[0]?.trim() || stripped.slice(0, 140);
+  };
+  const buildKnowledgeSubdomains = (forEngram?: string, domainLabel?: string) => {
+    const extra =
+      suggestedDomain && forEngram && slugify(forEngram) !== slugify(domainLabel || suggestedDomain)
+        ? [forEngram]
+        : [];
+    const combined = [...knowledgeSubdomains, ...extra]
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+    return Array.from(new Set(combined));
+  };
+  const buildKnowledgePreview = (params: {
+    title: string;
+    body: string;
+    kind: 'concept' | 'lesson';
+    confidence?: number;
+    forEngram?: string;
+  }) => {
+    const domainLabel = resolveKnowledgeDomainLabel(params.forEngram);
+    const domainSlug = resolveKnowledgeDomainSlug(params.forEngram);
+    const frontmatter = {
+      knowledge_id: `${domainSlug}-${slugify(params.title)}`,
+      title: params.title,
+      summary: summarizeKnowledge(params.body),
+      domain: domainSlug,
+      subdomains: buildKnowledgeSubdomains(params.forEngram, domainLabel),
+      audience: data.contentType === 'customer' ? ['customer'] : ['internal'],
+      visibility: data.contentType === 'customer' ? 'external' : 'internal',
+      kind: params.kind,
+      confidence: mapKnowledgeConfidence(params.confidence),
+      last_verified: today,
+      tags: data.tags || [],
+    };
+    const whenToUse =
+      params.forEngram && params.forEngram !== 'general'
+        ? `Use when handling ${params.forEngram} related questions.`
+        : 'Use when this fact is needed to answer questions or resolve tasks.';
+    return (
+      '---\n' +
+      yaml.dump(frontmatter).trim() +
+      '\n---\n# ' +
+      params.title +
+      '\n\n## Facts\n' +
+      params.body +
+      '\n\n## When to use\n' +
+      whenToUse
+    );
+  };
 
   const { frontmatterText, skillPreview } = useMemo(() => {
     if (!isAgentImport) return { frontmatterText: '', skillPreview: '' };
@@ -1414,16 +1489,31 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                 const isDuplicate = concept.duplicate?.similar;
                 const topMatch = concept.duplicate?.matches?.[0];
                 const conflict = concept.conflict;
-                const mergeOptions =
-                  concept.duplicate?.matches?.filter((match: DuplicateMatch) => match.type === 'concept') || [];
+                const mergeOptions = isKnowledgeExtraction
+                  ? []
+                  : concept.duplicate?.matches?.filter((match: DuplicateMatch) => match.type === 'concept') || [];
                 const replaceTarget = mergeOptions[0];
+                const conceptPreviewText = isKnowledgeExtraction
+                  ? buildKnowledgePreview({
+                      title: concept.title,
+                      body: concept.content,
+                      kind: 'concept',
+                      confidence: concept.confidence,
+                      forEngram: concept.forEngram,
+                    })
+                  : concept.previewMarkdown;
+                const previewLabel = isKnowledgeExtraction ? 'Show knowledge note' : 'Show YAML';
+                const targetLabel = isKnowledgeExtraction
+                  ? resolveKnowledgeDomainLabel(concept.forEngram)
+                  : concept.forEngram || 'general';
+                const targetLabelTitle = isKnowledgeExtraction ? 'Domain' : 'Engram';
                 return (
                 <div key={`${concept.title}-${i}`} className="bg-white border border-blue-100 rounded-lg p-3">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-medium text-gray-900">{concept.title}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        For Engram: {concept.forEngram || 'general'}
+                        For {targetLabelTitle}: {targetLabel}
                       </p>
                       {(concept.riskLevel === 'high' || (typeof concept.confidence === 'number' && concept.confidence < AUTO_INCLUDE_CONFIDENCE)) && (
                         <p className="text-xs text-amber-700 mt-1">
@@ -1514,7 +1604,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       </div>
                     </div>
                   )}
-                  {isDuplicate && mergeOptions.length > 0 && (
+                  {!isKnowledgeExtraction && isDuplicate && mergeOptions.length > 0 && (
                     <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
                       <p className="text-xs font-medium text-amber-900 mb-2">Merge into existing concept</p>
                       <select
@@ -1545,29 +1635,31 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       )}
                     </div>
                   )}
-                  {isDuplicate && mergeOptions.length === 0 && (
+                  {!isKnowledgeExtraction && isDuplicate && mergeOptions.length === 0 && (
                     <p className="text-xs text-amber-700 mt-3">
                       Closest matches are not concept files. Add any new context manually to the relevant file.
                     </p>
                   )}
                   <details className="mt-3">
-                    <summary className="text-xs text-blue-700 cursor-pointer">Preview content</summary>
+                    <summary className="text-xs text-blue-700 cursor-pointer">
+                      {isKnowledgeExtraction ? 'Preview knowledge note' : 'Preview content'}
+                    </summary>
                     <div className="mt-2 text-xs text-gray-500 flex items-center justify-between border-t border-blue-100 pt-2">
                       <span>Preview mode</span>
-                      {concept.previewMarkdown && (
+                      {conceptPreviewText && (
                         <button
                           type="button"
                           onClick={() => toggleConceptPreview(i)}
                           className="text-xs text-blue-700 hover:underline"
                         >
-                          {conceptYamlPreview[i] ? 'Show content' : 'Show YAML'}
+                          {conceptYamlPreview[i] ? 'Show content' : previewLabel}
                         </button>
                       )}
                     </div>
                     <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
-                      {conceptYamlPreview[i] && concept.previewMarkdown ? (
+                      {conceptYamlPreview[i] && conceptPreviewText ? (
                         <pre className="text-xs text-gray-700 whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded-lg p-3">
-                          {concept.previewMarkdown}
+                          {conceptPreviewText}
                         </pre>
                       ) : (
                         <div className="border-t border-blue-100 pt-2">{concept.content}</div>
@@ -1585,15 +1677,30 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
               {extraction.lessons.map((lesson, i) => {
                 const isDuplicate = lesson.duplicate?.similar;
                 const topMatch = lesson.duplicate?.matches?.[0];
-                const mergeOptions =
-                  lesson.duplicate?.matches?.filter((match: DuplicateMatch) => match.type === 'lesson') || [];
+                const mergeOptions = isKnowledgeExtraction
+                  ? []
+                  : lesson.duplicate?.matches?.filter((match: DuplicateMatch) => match.type === 'lesson') || [];
+                const lessonPreviewText = isKnowledgeExtraction
+                  ? buildKnowledgePreview({
+                      title: lesson.title,
+                      body: `Scenario: ${lesson.scenario}\n\nResolution: ${lesson.solution}`,
+                      kind: 'lesson',
+                      confidence: lesson.confidence,
+                      forEngram: lesson.forEngram,
+                    })
+                  : lesson.previewMarkdown;
+                const previewLabel = isKnowledgeExtraction ? 'Show knowledge note' : 'Show YAML';
+                const targetLabel = isKnowledgeExtraction
+                  ? resolveKnowledgeDomainLabel(lesson.forEngram)
+                  : lesson.forEngram || 'general';
+                const targetLabelTitle = isKnowledgeExtraction ? 'Domain' : 'Engram';
                 return (
                 <div key={`${lesson.title}-${i}`} className="bg-white border border-blue-100 rounded-lg p-3">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-medium text-gray-900">{lesson.title}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        For Engram: {lesson.forEngram || 'general'}
+                        For {targetLabelTitle}: {targetLabel}
                       </p>
                       {(lesson.riskLevel === 'high' || (typeof lesson.confidence === 'number' && lesson.confidence < AUTO_INCLUDE_CONFIDENCE)) && (
                         <p className="text-xs text-amber-700 mt-1">
@@ -1626,7 +1733,7 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       {isDuplicate ? 'Duplicate' : 'Include'}
                     </label>
                   </div>
-                  {isDuplicate && mergeOptions.length > 0 && (
+                  {!isKnowledgeExtraction && isDuplicate && mergeOptions.length > 0 && (
                     <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
                       <p className="text-xs font-medium text-amber-900 mb-2">Merge into existing lesson</p>
                       <select
@@ -1651,29 +1758,31 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
                       )}
                     </div>
                   )}
-                  {isDuplicate && mergeOptions.length === 0 && (
+                  {!isKnowledgeExtraction && isDuplicate && mergeOptions.length === 0 && (
                     <p className="text-xs text-amber-700 mt-3">
                       Closest matches are not lesson files. Add any new context manually to the relevant file.
                     </p>
                   )}
                   <details className="mt-3">
-                    <summary className="text-xs text-blue-700 cursor-pointer">Preview lesson</summary>
+                    <summary className="text-xs text-blue-700 cursor-pointer">
+                      {isKnowledgeExtraction ? 'Preview knowledge note' : 'Preview lesson'}
+                    </summary>
                     <div className="mt-2 text-xs text-gray-500 flex items-center justify-between border-t border-blue-100 pt-2">
                       <span>Preview mode</span>
-                      {lesson.previewMarkdown && (
+                      {lessonPreviewText && (
                         <button
                           type="button"
                           onClick={() => toggleLessonPreview(i)}
                           className="text-xs text-blue-700 hover:underline"
                         >
-                          {lessonYamlPreview[i] ? 'Show content' : 'Show YAML'}
+                          {lessonYamlPreview[i] ? 'Show content' : previewLabel}
                         </button>
                       )}
                     </div>
                     <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
-                      {lessonYamlPreview[i] && lesson.previewMarkdown ? (
+                      {lessonYamlPreview[i] && lessonPreviewText ? (
                         <pre className="text-xs text-gray-700 whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded-lg p-3">
-                          {lesson.previewMarkdown}
+                          {lessonPreviewText}
                         </pre>
                       ) : (
                         <div className="border-t border-blue-100 pt-2">
@@ -1694,10 +1803,14 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
       {extraction && hasNoNetNewAgentContent && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h3 className="font-medium text-green-900 mb-1">No net-new agent content detected</h3>
+          <h3 className="font-medium text-green-900 mb-1">
+            {isKnowledgeExtraction ? 'No net-new knowledge detected' : 'No net-new agent content detected'}
+          </h3>
           <p className="text-sm text-green-800">
             {hasAnyExtraction
               ? 'All suggested items look duplicative of existing knowledge. Use the merge options above to add context to the existing files.'
+              : isKnowledgeExtraction
+              ? 'This reads as clean, human-only guidance — nothing new for the knowledge library surfaced.'
               : 'This reads as clean, customer-only guidance — nothing new for agent training surfaced.'}
           </p>
         </div>
@@ -1705,8 +1818,14 @@ export function AIAnalysisReview({ data, onChange, onAnalyze, onContinue, isAnal
 
       {extraction && hasNetNewCandidates && !hasSelectedExtraction && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-medium text-blue-900 mb-1">No agent-training items selected yet</h3>
-          <p className="text-sm text-blue-800">Select net-new items above to create draft Engram files, or merge duplicates into existing files.</p>
+          <h3 className="font-medium text-blue-900 mb-1">
+            {isKnowledgeExtraction ? 'No knowledge items selected yet' : 'No agent-training items selected yet'}
+          </h3>
+          <p className="text-sm text-blue-800">
+            {isKnowledgeExtraction
+              ? 'Select net-new items above to create knowledge notes for agents.'
+              : 'Select net-new items above to create draft Engram files, or merge duplicates into existing files.'}
+          </p>
         </div>
       )}
 
