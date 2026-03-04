@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 
 export default async function Home() {
-  const host = headers().get("host") || "";
+  const headerList = await headers();
+  const host = headerList.get("host") || "";
   const isInternal = host.includes("internal.help.venturehome.com");
 
   const billingConcepts = getArticlesByCategory("billing").slice(0, 4);
